@@ -1,0 +1,509 @@
+# 分红银行 GameFi 详细部署顺序说明
+
+## 这份文档解决什么问题
+
+这份文档专门回答两个问题：
+
+1. 主网正式上线时，建议按什么顺序部署、配置、验证、发行和开放。
+2. 是否可以先发行 NFT，再部署其他部分。
+
+这里的“发行 NFT”需要拆开理解：
+
+- `部署 NFT 合约`：把 `DividendBankNFT` 合约和 proxy 部署到链上。
+- `铸造 NFT`：调用 `mint()` 真正把 NFT 发到持有人钱包。
+- `开放 NFT 交易`：把 NFT 挂到 Element，允许用户买卖。
+
+这三件事不是一回事，顺序也不一样。
+
+## 先说结论
+
+### 推荐顺序
+
+推荐顺序是：
+
+1. 先准备外部依赖和环境变量
+2. 一次性部署整套核心合约
+3. 回填地址到 `.env` 和 `web/.env`
+4. 配置 VRF
+5. 给 `BankrollVault` 注入首轮 FLAP
+6. 小批量铸造 NFT
+7. 检查 NFT 元数据、持仓、转账
+8. Element 合集识别和首轮挂单验证
+9. 构建并发布 dApp
+10. 用小资金做主网端到端彩排
+11. 全量铸造或补铸
+12. 最终权限交接
+
+### 能不能先发行 NFT
+
+如果你的意思是：
+
+- `先铸造 NFT，再部署游戏/收益/权限其他部分`
+
+按当前仓库的脚本和结构，不推荐，也基本不应该这么做。
+
+原因是当前仓库的 NFT 不是一个完全孤立的单体项目。现有部署脚本会把下面这些内容作为一整套部署：
+
+- `SystemAccessControl`
+- `ReferralRegistry`
+- `GameRegistry`
+- `IncomePool`
+- `BankrollVault`
+- `GameManager`
+- 游戏模块
+- `DividendBankNFT`
+- `NftRevenueDistributor`
+
+也就是说，当前代码默认的部署模型是“整套一起部署”，不是“先单独发一个 NFT 项目，再晚点接别的合约”。
+
+### 更精确一点的结论
+
+1. `不能在当前默认流程里，先铸造 NFT 再去部署整套核心合约`
+   - 因为你连 `DIVIDEND_BANK_NFT` 地址都还没有。
+   - 当前 `MintDividendBankNft.s.sol` 依赖已经存在的 `DIVIDEND_BANK_NFT` 地址。
+
+2. `可以在整套核心合约部署完成后，先铸造 NFT，再慢一点上线游戏或前端`
+   - 这是可行的。
+   - 也是当前代码结构下更合理的“先 NFT、后业务开放”的做法。
+
+3. `理论上可以专门改脚本，先单独部署 NFT，再后补其他模块`
+   - 但当前仓库没有现成脚本支持这种顺序。
+   - 这会引入额外的接线和交付风险。
+   - 如果现在目标是稳定上线，不建议这么改。
+
+## 当前代码里的真实依赖关系
+
+### 1. NFT 部署不是完全独立的
+
+当前 `DeployGameFi.s.sol` 里，NFT stack 的部署发生在整套合约部署过程中，而不是一个单独脚本：
+
+- 先部署 `SystemAccessControl`
+- 再部署 `ReferralRegistry`
+- 再部署 `GameRegistry`
+- 再部署 `IncomePool`
+- 再部署 `BankrollVault`
+- 再部署 `GameManager`
+- 再部署游戏模块
+- 最后部署 `DividendBankNFT` + `NftRevenueDistributor`
+
+其中 `NftRevenueDistributor` 构造时依赖：
+
+- `accessControl`
+- `flapToken`
+- `nft`
+- `incomePool`
+
+所以当前实现里，NFT 收益模块天然绑定在整套系统里，不是完全孤立的 NFT 合集。
+
+### 2. 铸造脚本依赖已部署 NFT
+
+`MintDividendBankNft.s.sol` 运行前必须已经有：
+
+- `DIVIDEND_BANK_NFT`
+- `NFT_MINT_RECIPIENT`
+- `NFT_MINT_TOTAL_QUANTITY`
+- `NFT_MINT_CHUNK_SIZE`
+
+也就是说，先有 NFT 合约地址，才能铸造。
+
+### 3. NFT 分红功能依赖收益池
+
+NFT 分红不是“铸了就自动有收益”，而是依赖：
+
+- `IncomePool` 里先有 FLAP
+- `NftRevenueDistributor` 已部署
+- `IncomePool.nftDistributor` 已经设置
+- 每日 `snapshotAndPull()` 正常执行
+
+所以如果你很早就把 NFT 发出去了，但收益池和快照机制还没准备好，NFT 也不会开始正常分红。
+
+## 推荐的详细部署顺序
+
+下面是更稳的主网顺序。
+
+## 第一阶段：部署前准备
+
+### 1. 确认主网参数
+
+先准备并确认：
+
+- `BSC_RPC_URL`
+- `FLAP_TOKEN`
+- `FLAP_DIVIDEND`
+- `WBNB_TOKEN`
+- `PANCAKE_ROUTER_V2`
+- `VRF_COORDINATOR`
+- `VRF_KEY_HASH`
+- `VRF_SUBSCRIPTION_ID`
+- `VRF_REQUEST_CONFIRMATIONS`
+- `VRF_CALLBACK_GAS_LIMIT`
+
+### 2. 确认角色钱包
+
+至少确认这些地址：
+
+- `MULTISIG_ADMIN`
+- `OPERATOR_WALLET`
+- `PAUSER_WALLET`
+- `REVENUE_OPERATOR_WALLET`
+- `AUTOMATION_WALLET`
+- `NFT_MINTER_WALLET`
+- `NFT_METADATA_WALLET`
+- `NFT_ROYALTY_RECEIVER`
+
+### 3. 确认 NFT 基础信息
+
+确认：
+
+- `NFT_NAME`
+- `NFT_SYMBOL`
+- `NFT_BASE_URI`
+- `NFT_ROYALTY_BPS`
+
+### 4. 确认资金准备
+
+上线前至少准备：
+
+- 部署钱包的 BNB
+- VRF subscription 资金
+- 首轮注入 `BankrollVault` 的 FLAP
+- 运营钱包保留的测试 FLAP
+- 挂到 Element 的首轮 NFT
+
+## 第二阶段：一次性部署核心合约
+
+### 1. 执行整套部署
+
+执行：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+source .env
+forge script script/DeployGameFi.s.sol:DeployGameFi --rpc-url $BSC_RPC_URL --broadcast
+```
+
+### 2. 为什么这里推荐整套一起部署
+
+原因有三个：
+
+1. 这是当前仓库原生支持的路径。
+2. 部署后生成的 `deployments/<chainId>.json` 能一次性把所有关键地址记录下来。
+3. 可以避免你后面再手动拼接 “旧 NFT + 新收益池 + 新权限系统” 的组合风险。
+
+## 第三阶段：部署后回填
+
+部署成功后，马上做两件事。
+
+### 1. 回填 `.env`
+
+至少回填：
+
+- `SYSTEM_ACCESS_CONTROL`
+- `GAME_MANAGER`
+- `BANKROLL_VAULT`
+- `INCOME_POOL`
+- `DIVIDEND_BANK_NFT`
+- `NFT_REVENUE_DISTRIBUTOR`
+
+注意：
+
+- `DIVIDEND_BANK_NFT` 必须填 proxy 地址，不是 implementation 地址。
+
+### 2. 回填 `web/.env`
+
+至少回填：
+
+- `VITE_SYSTEM_ACCESS_CONTROL_ADDRESS`
+- `VITE_REFERRAL_REGISTRY_ADDRESS`
+- `VITE_GAME_REGISTRY_ADDRESS`
+- `VITE_GAME_MANAGER_ADDRESS`
+- `VITE_BANKROLL_VAULT_ADDRESS`
+- `VITE_INCOME_POOL_ADDRESS`
+- `VITE_DIVIDEND_BANK_NFT_ADDRESS`
+- `VITE_NFT_REVENUE_DISTRIBUTOR_ADDRESS`
+
+## 第四阶段：配置 VRF
+
+### 1. 先配置
+
+执行：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+source .env
+forge script script/ConfigureVrf.s.sol:ConfigureVrf --rpc-url $BSC_RPC_URL --broadcast
+```
+
+### 2. 再加 consumer
+
+到 Chainlink VRF 管理界面，把 `GameManager` 加进 subscription consumer 列表。
+
+### 3. 为什么 VRF 要放在 NFT 铸造前面
+
+不是因为 NFT 依赖 VRF，而是因为：
+
+- VRF 是游戏是否可用的关键断点。
+- 越早确认 VRF 通，越早知道主网最关键的一条链路是否正常。
+- 否则你可能先发了一堆 NFT、先做了前端宣传，结果游戏主流程还没通。
+
+## 第五阶段：注入资金池
+
+### 1. 向 `BankrollVault` 注入 FLAP
+
+用运营钱包或资金钱包，直接给 `BankrollVault` 地址转入首轮 FLAP。
+
+### 2. 为什么这一步要早于开放游戏
+
+因为下注时 `BankrollVault` 会检查可用余额是否足够覆盖潜在利润。
+
+如果这一步不做：
+
+- 前端看起来可能都正常
+- 但用户第一笔下注就可能失败
+
+## 第六阶段：先小批量铸造 NFT
+
+### 1. 推荐先小批量
+
+不要一上来铸满 420。
+
+建议先做：
+
+- `NFT_MINT_RECIPIENT = 运营方钱包`
+- `NFT_MINT_TOTAL_QUANTITY = 5`
+- `NFT_MINT_CHUNK_SIZE = 5`
+
+然后执行：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+source .env
+forge script script/MintDividendBankNft.s.sol:MintDividendBankNft --rpc-url $BSC_RPC_URL --broadcast
+```
+
+### 2. 先小批量的原因
+
+先验证这些事情：
+
+- `mint()` 权限正常
+- `totalSupply()` 正常
+- `balanceOf()` 正常
+- `tokenOfOwnerByIndex()` 正常
+- 元数据路径正常
+- 钱包显示正常
+- Element 能否正确识别合集
+
+### 3. 什么时候再全量铸造
+
+小批量检查通过后，再决定：
+
+- 继续整批铸满
+- 或者先保留一部分，等首轮主网彩排完成再铸
+
+## 第七阶段：NFT 自测与 Element 上架
+
+### 1. 先做链上转账自测
+
+至少验证一次：
+
+- 钱包 A 持有 NFT
+- 钱包 A 转给钱包 B
+- 钱包 B 页面可读到 NFT
+
+### 2. 再做 Element 识别
+
+确认：
+
+- 合集名称正确
+- symbol 正确
+- 总量正确
+- royalty 显示正确
+- 持仓显示正确
+
+### 3. 再做小额挂单和购买
+
+建议用：
+
+- 小编号 NFT
+- 小金额挂单
+- 受控测试钱包购买
+
+先做一笔完整闭环，再决定是否正式开放大量交易。
+
+## 第八阶段：部署 dApp
+
+### 1. 回填前端参数
+
+包括：
+
+- 全部合约地址
+- `VITE_WALLETCONNECT_PROJECT_ID`
+- `VITE_BSC_RPC_URL`
+- `VITE_ELEMENT_NFT_URL`（如果 Element 页面已经可访问）
+
+### 2. 构建前端
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行/web
+npm run build
+```
+
+### 3. 发布前端
+
+把 `web/dist` 发布到你们实际使用的静态站点或 CDN。
+
+### 4. 发布后人工点测
+
+至少检查：
+
+- 首页
+- 游戏页
+- NFT 页
+- 收益页
+- 邀请页
+- 管理页
+
+## 第九阶段：主网小流量彩排
+
+这里非常重要。
+
+在正式开放前，用小资金、小流量做一次完整闭环：
+
+1. 普通用户钱包：
+   - 连接钱包
+   - 授权 FLAP
+   - 发起最小下注
+
+2. 管理钱包：
+   - 确认 VRF 已回调
+   - 确认注单正确结算
+
+3. NFT 持有人钱包：
+   - 等到快照日
+   - 执行 `snapshotAndPull()`
+   - 领取一次收益
+
+4. 收益钱包：
+   - 执行一次 `HarvestAndBuyback`
+
+5. Element：
+   - 做一次挂单
+   - 做一次购买
+
+这一步通过后，再考虑完全开放。
+
+## 第十阶段：全量开放前的最终动作
+
+### 1. 补全 NFT 铸造
+
+如果前面只做了小批量，这时再补足：
+
+- 全部 420
+- 或运营确定的实际首发数量
+
+### 2. 完成前端正式发布
+
+确保线上站点访问的是最新构建。
+
+### 3. 完成最终角色检查
+
+确认：
+
+- 运营地址角色已齐
+- 部署钱包仍保留临时权限
+- 还没有过早 `renounce`
+
+## 第十一阶段：最终权限交接
+
+等下面这些都确认完成后，再交权：
+
+- 合约部署完成
+- 地址回填完成
+- VRF 正常
+- NFT 已确认正常
+- Element 已确认正常
+- dApp 已确认正常
+- 主网彩排已通过
+
+然后执行：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+source .env
+forge script script/FinalizeMultisigHandover.s.sol:FinalizeMultisigHandover --rpc-url $BSC_RPC_URL --broadcast
+```
+
+## 关于“是否可以先发行 NFT”的详细判断
+
+## 方案 A：先部署整套，再先发 NFT，再晚点开放游戏
+
+这是当前最推荐的方案。
+
+顺序：
+
+1. 部署整套
+2. 配 VRF
+3. 小批量铸 NFT
+4. 上 Element
+5. 部署前端
+6. 再开放游戏和收益功能
+
+优点：
+
+- 不需要改脚本
+- 不会破坏现有依赖关系
+- NFT 可以先开始市场动作
+- 游戏可以后开
+
+缺点：
+
+- 需要在运营口径上明确告诉用户：NFT 已发，但某些收益或玩法要按上线节奏开放
+
+## 方案 B：先单独部署 NFT 合约，再几天后部署其他合约
+
+当前仓库不建议这样做。
+
+原因：
+
+1. 现成脚本不支持。
+2. 你后面还要保证：
+   - `NftRevenueDistributor` 使用的 NFT 地址就是这一个
+   - 权限体系能正确接上
+   - 前端地址不会混乱
+   - 交权流程不会出现旧 admin / 新 admin 混用
+3. 这会让交付路径从“标准流程”变成“定制流程”。
+
+如果你一定要这么做，最好是单独开一个改造任务，而不是在上线前临时调整。
+
+## 方案 C：先铸造 NFT，再部署 NFT 以外的其他合约
+
+按当前代码，这是不可行的。
+
+因为：
+
+- 没有已部署的 `DIVIDEND_BANK_NFT`，就无法执行 mint 脚本。
+- mint 不是离线动作，它必须对链上现有 NFT 合约发交易。
+
+## 推荐给业务侧的实际节奏
+
+如果你的业务目标是“先做 NFT 市场预热，再开放游戏”，最稳的执行法是：
+
+1. 主网先部署整套合约
+2. 不急着开放游戏入口
+3. 先小批量铸造 NFT
+4. 先上 Element
+5. 先做 NFT 转账和交易自测
+6. 再完成 VRF、前端、资金池和收益链路的最终彩排
+7. 最后全面开放游戏和收益
+
+这样从外部看起来像“先发 NFT”，但底层依然走的是稳定的整套部署路径。
+
+## 最终建议
+
+如果你现在追求的是“尽快交付而且风险最低”，建议采用下面这个原则：
+
+- `不要先单独做 NFT 项目部署`
+- `先部署整套核心合约`
+- `可以在整套部署完成后，先铸造 NFT、先上 Element、后开放游戏`
+
+这是当前仓库最稳、最符合现有脚本、也最容易交接给后续运营团队的顺序。

@@ -1,0 +1,17 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = ["lib"]
+optimizer = true
+optimizer_runs = 20_000
+fs_permissions = [{ access = "read-write", path = "./" }]
+auto_detect_solc = true
+
+remappings = [
+  "@openzeppelin/=lib/openzeppelin-contracts-full/contracts/",
+  "@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable-full/contracts/",
+  "@openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+  "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+  "forge-std/=lib/forge-std/src/"
+]
