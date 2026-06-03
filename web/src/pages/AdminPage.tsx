@@ -3,9 +3,10 @@ import { formatEther, keccak256, stringToHex, zeroHash } from "viem";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { SectionCard } from "../components/SectionCard";
 import { TxStatusBanner } from "../components/TxStatusBanner";
-import { accessControlAbi, gameManagerAbi, nftRevenueDistributorAbi } from "../abi/gamefi";
+import { accessControlAbi, gameManagerAbi, gameRegistryAbi, nftRevenueDistributorAbi } from "../abi/gamefi";
 import { contracts } from "../config/contracts";
 import { bscChain } from "../config/chains";
+import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useTxFlow } from "../hooks/useTxFlow";
 import { shortAddress } from "../lib/format";
 
@@ -24,6 +25,7 @@ export function AdminPage() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const tx = useTxFlow();
+  const gameAvailability = useGameAvailability();
   const [refundBetIdInput, setRefundBetIdInput] = useState("");
   const roleQueryConfig = {
     address: contracts.accessControl,
@@ -119,12 +121,14 @@ export function AdminPage() {
   const isAdmin = Boolean(roleChecks[0].data);
   const isOperator = Boolean(roleChecks[1].data);
   const isPauser = Boolean(roleChecks[2].data);
+  const isGameAdmin = Boolean(roleChecks[4].data);
   const isAutomation = Boolean(roleChecks[5].data);
   const actionLocked = tx.phase === "awaiting-signature" || tx.phase === "sending" || tx.phase === "confirming";
   const hasTodaySnapshot = todaySnapshot.data !== undefined && todaySnapshot.data[0] > 0n;
   const refundStatus = pendingBet.data ? Number(pendingBet.data[7]) : 0;
   const canPause = isPauser && paused.data === false;
   const canUnpause = isAdmin && paused.data === true;
+  const canManageGames = isAdmin || isGameAdmin;
   const canRunSnapshot = (isAutomation || isAdmin) && currentDay.data !== undefined && !hasTodaySnapshot;
   const canRefundPendingBet = (isOperator || isAdmin) && refundBetId !== undefined && refundStatus === 1;
   const refundPlayer = pendingBet.data?.[0];
@@ -201,6 +205,27 @@ export function AdminPage() {
     }
   }
 
+  async function handleToggleGame(gameId: `0x${string}`, enabled: boolean) {
+    if (!contracts.gameRegistry) {
+      tx.setError("游戏注册表地址未配置");
+      return;
+    }
+
+    try {
+      tx.setAwaitingSignature();
+      const hash = await writeContractAsync({
+        address: contracts.gameRegistry,
+        chainId: bscChain.id,
+        abi: gameRegistryAbi,
+        functionName: "setGameEnabled",
+        args: [gameId, enabled],
+      });
+      tx.setHashAndSending(hash);
+    } catch (error) {
+      tx.setError(error instanceof Error ? error.message : "更新游戏状态失败");
+    }
+  }
+
   return (
     <div className="vault-page-stack">
       <SectionCard eyebrow="管理入口" title="營運權限" description="此页展示当前地址的系统角色，并开放核心运营动作。">
@@ -240,6 +265,39 @@ export function AdminPage() {
               恢復系統
             </button>
           </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="遊戲上線控制" description="owner 钱包可在这里分阶段开放游戏；运营钱包默认不持有此权限。">
+        <div className="form-shell">
+          {gameAvailability.isLoading ? (
+            <div className="empty-state">读取游戏状态中</div>
+          ) : (
+            <div className="portfolio-grid">
+              {Object.values(gameAvailability.games).map((game) => (
+                <div key={game.key} className="portfolio-card">
+                  <span>{game.label}</span>
+                  <strong>{game.enabled ? "已上线" : "未上线"}</strong>
+                  <p className="state-note">{game.description}</p>
+                  <div className="claim-action-buttons">
+                    <button
+                      className={game.enabled ? "warning-button" : "primary-button"}
+                      disabled={actionLocked || !canManageGames}
+                      onClick={() => void handleToggleGame(game.gameId, !game.enabled)}
+                    >
+                      {game.enabled ? "下线此游戏" : "上线此游戏"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!canManageGames ? (
+            <div className="status-banner">
+              <strong>当前地址没有游戏开关权限</strong>
+              <span>请使用 owner 钱包或持有 GAME_ADMIN_ROLE 的地址连接后台。</span>
+            </div>
+          ) : null}
         </div>
       </SectionCard>
 

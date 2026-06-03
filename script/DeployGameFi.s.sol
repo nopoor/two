@@ -10,7 +10,6 @@ import {IncomePool} from "src/gamefi/revenue/IncomePool.sol";
 import {BankrollVault} from "src/gamefi/vault/BankrollVault.sol";
 import {GameManager} from "src/gamefi/manager/GameManager.sol";
 import {CoinFlipModule} from "src/gamefi/modules/CoinFlipModule.sol";
-import {DiceModule} from "src/gamefi/modules/DiceModule.sol";
 import {MysteryBoxModule} from "src/gamefi/modules/MysteryBoxModule.sol";
 import {DividendBankNFT} from "src/gamefi/nft/DividendBankNFT.sol";
 import {NftRevenueDistributor} from "src/gamefi/revenue/NftRevenueDistributor.sol";
@@ -46,7 +45,6 @@ contract DeployGameFi is Script {
         address bankrollVault;
         address gameManager;
         address coinFlipModule;
-        address diceModule;
         address mysteryBoxModule;
         address nftImplementation;
         address nftProxy;
@@ -100,7 +98,6 @@ contract DeployGameFi is Script {
             new GameManager(deployed.accessControl, deployed.gameRegistry, deployed.referralRegistry, deployed.bankrollVault)
         );
         deployed.coinFlipModule = address(new CoinFlipModule());
-        deployed.diceModule = address(new DiceModule());
         deployed.mysteryBoxModule = address(new MysteryBoxModule());
         (deployed.nftImplementation, deployed.nftProxy, deployed.nftRevenueDistributor) =
             _deployNftStack(deployed.accessControl, deployed.incomePool, cfg);
@@ -135,11 +132,10 @@ contract DeployGameFi is Script {
         IncomePool(deployed.incomePool).setNftDistributor(deployed.nftRevenueDistributor);
         GameRegistry gameRegistry = GameRegistry(deployed.gameRegistry);
         gameRegistry.registerGame(CoinFlipModule(deployed.coinFlipModule).gameId(), deployed.coinFlipModule, "coin-flip", 1);
-        gameRegistry.registerGame(DiceModule(deployed.diceModule).gameId(), deployed.diceModule, "dice", 1);
         gameRegistry.registerGame(
             MysteryBoxModule(deployed.mysteryBoxModule).gameId(), deployed.mysteryBoxModule, "mystery-box", 1
         );
-        gameRegistry.setGameEnabled(DiceModule(deployed.diceModule).gameId(), false);
+        gameRegistry.setGameEnabled(MysteryBoxModule(deployed.mysteryBoxModule).gameId(), false);
 
         _grantSystemRoles(
             SystemAccessControl(deployed.accessControl),
@@ -188,9 +184,8 @@ contract DeployGameFi is Script {
         }
 
         if (operatorWallet != address(0)) {
-            bytes32[] memory operatorRoles = new bytes32[](2);
+            bytes32[] memory operatorRoles = new bytes32[](1);
             operatorRoles[0] = Roles.OPERATOR_ROLE;
-            operatorRoles[1] = Roles.GAME_ADMIN_ROLE;
             accessControl.grantBootstrapRoles(operatorWallet, operatorRoles);
         }
 
@@ -244,7 +239,6 @@ contract DeployGameFi is Script {
         vm.serializeAddress(root, "bankrollVault", deployed.bankrollVault);
         vm.serializeAddress(root, "gameManager", deployed.gameManager);
         vm.serializeAddress(root, "coinFlipModule", deployed.coinFlipModule);
-        vm.serializeAddress(root, "diceModule", deployed.diceModule);
         vm.serializeAddress(root, "mysteryBoxModule", deployed.mysteryBoxModule);
         vm.serializeAddress(root, "dividendBankNftImplementation", deployed.nftImplementation);
         vm.serializeAddress(root, "dividendBankNftProxy", deployed.nftProxy);

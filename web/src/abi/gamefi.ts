@@ -90,6 +90,37 @@ export const gameManagerAbi = [
   },
 ] as const;
 
+export const gameRegistryAbi = [
+  {
+    type: "function",
+    name: "getGame",
+    stateMutability: "view",
+    inputs: [{ name: "gameId", type: "bytes32" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "module", type: "address" },
+          { name: "name", type: "string" },
+          { name: "slug", type: "string" },
+          { name: "vrfWordCount", type: "uint16" },
+          { name: "enabled", type: "bool" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "setGameEnabled",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "gameId", type: "bytes32" },
+      { name: "enabled", type: "bool" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 export const incomePoolAbi = [
   {
     type: "function",

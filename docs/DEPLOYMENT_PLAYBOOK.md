@@ -104,19 +104,23 @@ VRF_CALLBACK_GAS_LIMIT=600000
   - `500` = `5%`
 
 - `MULTISIG_ADMIN`
-  - 最终管理员或多签地址
+  - 最终 owner 钱包或多签地址
+  - 部署时只需要地址，不需要把这个钱包私钥交给部署方
 
 - `OPERATOR_WALLET`
-  - 运营钱包
+  - 日常运营钱包
+  - 用于退款等运营动作，不负责游戏上线开关
 
 - `PAUSER_WALLET`
   - 紧急暂停钱包
 
 - `REVENUE_OPERATOR_WALLET`
   - 收益和回购运营钱包
+  - 如果你们只准备 1 个运营钱包，这里可以和 `OPERATOR_WALLET` 填同一个地址
 
 - `AUTOMATION_WALLET`
   - 每日快照执行钱包
+  - 如果你们只准备 1 个运营钱包，这里也可以和 `OPERATOR_WALLET` 填同一个地址
 
 - `NFT_MINTER_WALLET`
   - NFT 铸造钱包
@@ -237,6 +241,8 @@ npm --version
 - 部署钱包有足够 BNB
 - VRF subscription 已创建并充值
 - `NFT_BASE_URI` 已确定，或你明确知道后续要用 `METADATA_ROLE` 再改
+- 当前默认首发状态是：`飞船模式开启`、`盲盒模式关闭`
+- 盲盒后续由 owner 钱包连接 dApp 后台手动开启
 
 ---
 
@@ -276,7 +282,6 @@ forge script script/DeployGameFi.s.sol:DeployGameFi --rpc-url $BSC_RPC_URL --bro
 - `BankrollVault`
 - `GameManager`
 - `CoinFlipModule`
-- `DiceModule`
 - `MysteryBoxModule`
 - `DividendBankNFT` implementation
 - `DividendBankNFT` proxy

@@ -151,6 +151,23 @@ NFT 分红不是“铸了就自动有收益”，而是依赖：
 - `NFT_METADATA_WALLET`
 - `NFT_ROYALTY_RECEIVER`
 
+如果你们这次按“1 个 owner 钱包 + 1 个运营钱包”执行，可以这样理解：
+
+- `MULTISIG_ADMIN`
+  - 填 owner 钱包
+  - 这是最终最高权限地址，也适合同时作为 NFT 版税接收钱包
+- `NFT_ROYALTY_RECEIVER`
+  - 直接填 owner 钱包
+- `OPERATOR_WALLET`
+  - 填运营钱包
+  - 负责退款等日常运营动作
+- `REVENUE_OPERATOR_WALLET`
+  - 也可以直接填同一个运营钱包
+  - 负责收益处理和回购
+- `AUTOMATION_WALLET`
+  - 也可以直接填同一个运营钱包
+  - 负责每日 NFT 快照自动化
+
 ### 3. 确认 NFT 基础信息
 
 确认：
@@ -189,6 +206,15 @@ forge script script/DeployGameFi.s.sol:DeployGameFi --rpc-url $BSC_RPC_URL --bro
 1. 这是当前仓库原生支持的路径。
 2. 部署后生成的 `deployments/<chainId>.json` 能一次性把所有关键地址记录下来。
 3. 可以避免你后面再手动拼接 “旧 NFT + 新收益池 + 新权限系统” 的组合风险。
+
+### 3. 当前默认首发游戏状态
+
+部署脚本默认会把游戏注册完整，但首发状态会控制为：
+
+- `coin-flip / 飞船模式`：开启
+- `mystery-box / 盲盒模式`：关闭
+
+这样主网上线时可以先只跑飞船，等观察 3 天左右真实投注和资金波动后，再由 owner 钱包在 dApp 后台手动开启盲盒。
 
 ## 第三阶段：部署后回填
 

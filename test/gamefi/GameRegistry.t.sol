@@ -5,7 +5,6 @@ import {Test} from "forge-std/Test.sol";
 import {SystemAccessControl} from "src/gamefi/access/SystemAccessControl.sol";
 import {GameRegistry} from "src/gamefi/games/GameRegistry.sol";
 import {IGameModule} from "src/gamefi/interfaces/IGameModule.sol";
-import {Roles} from "src/gamefi/libraries/Roles.sol";
 
 contract MockGameModule is IGameModule {
     bytes32 private immutable _gameId;
@@ -38,7 +37,7 @@ contract GameRegistryTest is Test {
     GameRegistry internal registry;
 
     address internal admin = address(0xA11CE);
-    bytes32 internal constant DICE_GAME_ID = keccak256("DICE");
+    bytes32 internal constant TEST_GAME_ID = keccak256("TEST_GAME");
     bytes32 internal constant COIN_FLIP_GAME_ID = keccak256("COIN_FLIP");
 
     function setUp() external {
@@ -48,26 +47,26 @@ contract GameRegistryTest is Test {
     }
 
     function testRegisterGame() external {
-        MockGameModule module = new MockGameModule(DICE_GAME_ID, "Dice");
+        MockGameModule module = new MockGameModule(TEST_GAME_ID, "Test Game");
 
         vm.prank(admin);
-        registry.registerGame(DICE_GAME_ID, address(module), "dice", 1);
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game", 1);
 
-        GameRegistry.GameConfig memory config = registry.getGame(DICE_GAME_ID);
+        GameRegistry.GameConfig memory config = registry.getGame(TEST_GAME_ID);
         assertEq(config.module, address(module));
-        assertEq(config.name, "Dice");
-        assertEq(config.slug, "dice");
+        assertEq(config.name, "Test Game");
+        assertEq(config.slug, "test-game");
         assertEq(config.vrfWordCount, 1);
         assertTrue(config.enabled);
     }
 
     function testRejectDuplicateRegistration() external {
-        MockGameModule module = new MockGameModule(DICE_GAME_ID, "Dice");
+        MockGameModule module = new MockGameModule(TEST_GAME_ID, "Test Game");
 
         vm.startPrank(admin);
-        registry.registerGame(DICE_GAME_ID, address(module), "dice", 1);
-        vm.expectRevert(abi.encodeWithSelector(GameRegistry.GameAlreadyRegistered.selector, DICE_GAME_ID));
-        registry.registerGame(DICE_GAME_ID, address(module), "dice-v2", 1);
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game", 1);
+        vm.expectRevert(abi.encodeWithSelector(GameRegistry.GameAlreadyRegistered.selector, TEST_GAME_ID));
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game-v2", 1);
         vm.stopPrank();
     }
 
@@ -76,45 +75,45 @@ contract GameRegistryTest is Test {
 
         vm.prank(admin);
         vm.expectRevert(
-            abi.encodeWithSelector(GameRegistry.GameIdMismatch.selector, DICE_GAME_ID, COIN_FLIP_GAME_ID)
+            abi.encodeWithSelector(GameRegistry.GameIdMismatch.selector, TEST_GAME_ID, COIN_FLIP_GAME_ID)
         );
-        registry.registerGame(DICE_GAME_ID, address(module), "dice", 1);
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game", 1);
     }
 
     function testUpdateModule() external {
-        MockGameModule module = new MockGameModule(DICE_GAME_ID, "Dice");
-        MockGameModule upgradedModule = new MockGameModule(DICE_GAME_ID, "Dice V2");
+        MockGameModule module = new MockGameModule(TEST_GAME_ID, "Test Game");
+        MockGameModule upgradedModule = new MockGameModule(TEST_GAME_ID, "Test Game V2");
 
         vm.startPrank(admin);
-        registry.registerGame(DICE_GAME_ID, address(module), "dice", 1);
-        registry.setGameModule(DICE_GAME_ID, address(upgradedModule));
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game", 1);
+        registry.setGameModule(TEST_GAME_ID, address(upgradedModule));
         vm.stopPrank();
 
-        GameRegistry.GameConfig memory config = registry.getGame(DICE_GAME_ID);
+        GameRegistry.GameConfig memory config = registry.getGame(TEST_GAME_ID);
         assertEq(config.module, address(upgradedModule));
-        assertEq(config.name, "Dice V2");
+        assertEq(config.name, "Test Game V2");
     }
 
     function testPauseBlocksRegistration() external {
-        MockGameModule module = new MockGameModule(DICE_GAME_ID, "Dice");
+        MockGameModule module = new MockGameModule(TEST_GAME_ID, "Test Game");
 
         vm.prank(admin);
         accessControl.pause();
 
         vm.prank(admin);
         vm.expectRevert(bytes4(keccak256("SystemPaused()")));
-        registry.registerGame(DICE_GAME_ID, address(module), "dice", 1);
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game", 1);
     }
 
     function testSetGameEnabled() external {
-        MockGameModule module = new MockGameModule(DICE_GAME_ID, "Dice");
+        MockGameModule module = new MockGameModule(TEST_GAME_ID, "Test Game");
 
         vm.startPrank(admin);
-        registry.registerGame(DICE_GAME_ID, address(module), "dice", 1);
-        registry.setGameEnabled(DICE_GAME_ID, false);
+        registry.registerGame(TEST_GAME_ID, address(module), "test-game", 1);
+        registry.setGameEnabled(TEST_GAME_ID, false);
         vm.stopPrank();
 
-        GameRegistry.GameConfig memory config = registry.getGame(DICE_GAME_ID);
+        GameRegistry.GameConfig memory config = registry.getGame(TEST_GAME_ID);
         assertFalse(config.enabled);
     }
 }

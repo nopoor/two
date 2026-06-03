@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { decodeAbiParameters, encodeAbiParameters, formatEther, keccak256, parseAbiItem, parseEther, stringToHex } from "viem";
+import { Link, Navigate } from "react-router-dom";
+import { decodeAbiParameters, encodeAbiParameters, formatEther, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { TxStatusBanner } from "../components/TxStatusBanner";
 import { erc20Abi } from "../abi/common";
@@ -8,13 +8,13 @@ import { gameManagerAbi, referralRegistryAbi } from "../abi/gamefi";
 import { contracts } from "../config/contracts";
 import { bscChain } from "../config/chains";
 import { useDappAccess } from "../hooks/useDappAccess";
+import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useReferralLanding } from "../hooks/useReferralLanding";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { useTxFlow } from "../hooks/useTxFlow";
 import { shortAddress } from "../lib/format";
+import { coinFlipGameId } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
-
-const coinFlipGameId = keccak256(stringToHex("COIN_FLIP"));
 const maxAllowance = (2n ** 256n) - 1n;
 const tokenDisplayName = "分红银行";
 const wagerMultipliers = [1, 2, 3];
@@ -309,7 +309,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             <div>
               <strong>星际预测</strong>
             </div>
-            {showBackLink ? <Link to="/play" className="space-back-link">返回盲盒</Link> : null}
+            {showBackLink ? <Link to="/play" className="space-back-link">返回游戏大厅</Link> : null}
           </div>
 
           <div className={`space-ship-board ${isResolvingRound ? "resolving" : ""} ${resolvedRound ? (resolvedRound.landedUp ? "landed-up" : "landed-down") : ""}`.trim()}>
@@ -405,5 +405,15 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 }
 
 export function SpacePredictionPage() {
+  const gameAvailability = useGameAvailability();
+
+  if (gameAvailability.isLoading) {
+    return <div className="section-card compact">读取游戏上线状态中</div>;
+  }
+
+  if (!gameAvailability.games.space.enabled) {
+    return <Navigate to="/play" replace />;
+  }
+
   return <SpacePredictionPanel showBackLink />;
 }

@@ -118,7 +118,6 @@ npm run build
 - `bankrollVault`
 - `gameManager`
 - `coinFlipModule`
-- `diceModule`
 - `mysteryBoxModule`
 - `dividendBankNftImplementation`
 - `dividendBankNftProxy`
@@ -254,8 +253,8 @@ npm run build
 - `deployments/<chainId>.json` 已生成并存档。
 - `.env` 已回填部署地址。
 - `web/.env` 已回填部署地址。
-- `GameRegistry` 已注册 `coin-flip`、`dice`、`mystery-box`。
-- `dice` 默认禁用状态符合预期。
+- `GameRegistry` 已注册 `coin-flip`、`mystery-box`。
+- `mystery-box` 默认禁用状态符合预期。
 - `IncomePool.nftDistributor` 已正确指向 `NftRevenueDistributor`。
 - `GameManager` 已完成 VRF 配置。
 - VRF subscription 已添加 `GameManager` 为 consumer。
@@ -440,7 +439,6 @@ forge script script/FinalizeMultisigHandover.s.sol:FinalizeMultisigHandover --rp
 - `BankrollVault`
 - `GameManager`
 - `CoinFlipModule`
-- `DiceModule`
 - `MysteryBoxModule`
 - `DividendBankNFT` implementation
 - `ERC1967Proxy` 对应的 `DividendBankNFT` proxy

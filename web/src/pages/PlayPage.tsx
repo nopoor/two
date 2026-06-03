@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { decodeAbiParameters, formatEther, keccak256, parseAbiItem, parseEther, stringToHex } from "viem";
+import { decodeAbiParameters, formatEther, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { TxStatusBanner } from "../components/TxStatusBanner";
 import { erc20Abi } from "../abi/common";
@@ -7,15 +7,14 @@ import { gameManagerAbi, referralRegistryAbi } from "../abi/gamefi";
 import { contracts } from "../config/contracts";
 import { bscChain } from "../config/chains";
 import { useDappAccess } from "../hooks/useDappAccess";
+import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useReferralLanding } from "../hooks/useReferralLanding";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { useTxFlow } from "../hooks/useTxFlow";
 import { formatToken, shortAddress } from "../lib/format";
+import { coinFlipGameId, mysteryBoxGameId, type PublicGameMode } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
-
-const mysteryBoxGameId = keccak256(stringToHex("MYSTERY_BOX"));
-const coinFlipGameId = keccak256(stringToHex("COIN_FLIP"));
 const maxAllowance = (2n ** 256n) - 1n;
 const recentLogWindow = 40_000n;
 const tokenDisplayName = "分红银行";
@@ -29,7 +28,6 @@ const betSettledEvent = parseAbiItem(
 );
 
 type PlayTab = "open" | "live" | "odds" | "me" | "space" | "spaceHistory" | "spaceMe";
-type PlayMode = "box" | "space";
 
 const boxNavItems = [
   { key: "open", label: "开盒", icon: "◆" },
@@ -214,13 +212,14 @@ export function PlayPage() {
   const tx = useTxFlow();
   const sound = useSoundEffects();
   const access = useDappAccess();
+  const gameAvailability = useGameAvailability();
   const referralLanding = useReferralLanding(access.address);
   const publicClient = usePublicClient({ chainId: bscChain.id });
   const { writeContractAsync } = useWriteContract();
   const lastResolvedBetRef = useRef<bigint | undefined>();
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [activeTab, setActiveTab] = useState<PlayTab>("open");
-  const [activeMode, setActiveMode] = useState<PlayMode>("box");
+  const [activeMode, setActiveMode] = useState<PublicGameMode>("space");
   const [wagerUnits, setWagerUnits] = useState("1");
   const [trackedBetId, setTrackedBetId] = useState<bigint | undefined>();
   const [trackedFromBlock, setTrackedFromBlock] = useState<bigint | undefined>();
@@ -304,6 +303,8 @@ export function PlayPage() {
     : referrer
       ? `待下注绑定 ${shortAddress(referrer)}`
       : "无";
+  const isBoxEnabled = gameAvailability.games.box.enabled;
+  const isSpaceEnabled = gameAvailability.games.space.enabled;
   const writeDisabled = actionLocked || normalizedWager === 0 || hasPendingBet || trackedBetId !== undefined;
   const navItems = activeMode === "box" ? boxNavItems : spaceNavItems;
   const primaryTab: PlayTab = activeMode === "box" ? "open" : "space";
@@ -351,6 +352,14 @@ export function PlayPage() {
   const shareLink = typeof window !== "undefined" && access.activeAddress
     ? `${window.location.origin}/play?ref=${access.activeAddress}`
     : "";
+
+  useEffect(() => {
+    if (gameAvailability.firstEnabledMode === undefined) return;
+    const activeModeEnabled = activeMode === "box" ? isBoxEnabled : isSpaceEnabled;
+    if (activeModeEnabled) return;
+    setActiveMode(gameAvailability.firstEnabledMode);
+    setActiveTab(gameAvailability.firstEnabledMode === "box" ? "open" : "space");
+  }, [activeMode, gameAvailability.firstEnabledMode, isBoxEnabled, isSpaceEnabled]);
 
   useEffect(() => {
     if (navItems.some((item) => item.key === activeTab)) return;
@@ -694,6 +703,19 @@ export function PlayPage() {
     await copyInviteLink();
   }
 
+  if (gameAvailability.isLoading) {
+    return <div className="section-card compact">读取游戏上线状态中</div>;
+  }
+
+  if (gameAvailability.hasNoEnabledGames) {
+    return (
+      <div className="section-card compact">
+        <strong>游戏暂未开放</strong>
+        <p>当前没有可用玩法，请等待 owner 钱包在后台开启游戏。</p>
+      </div>
+    );
+  }
+
   return (
     <div className="capsule-play-page">
       <div className="capsule-stage-shell">
@@ -723,26 +745,30 @@ export function PlayPage() {
             </button>
           </div>
           <div className="play-mode-switch">
-            <button
-              type="button"
-              className={`play-mode-button ${activeMode === "box" ? "active" : ""}`.trim()}
-              onClick={() => {
-                setActiveMode("box");
-                setActiveTab("open");
-              }}
-            >
-              <strong>盲盒模式</strong>
-            </button>
-            <button
-              type="button"
-              className={`play-mode-button ${activeMode === "space" ? "active" : ""}`.trim()}
-              onClick={() => {
-                setActiveMode("space");
-                setActiveTab("space");
-              }}
-            >
-              <strong>飞船模式</strong>
-            </button>
+            {isSpaceEnabled ? (
+              <button
+                type="button"
+                className={`play-mode-button ${activeMode === "space" ? "active" : ""}`.trim()}
+                onClick={() => {
+                  setActiveMode("space");
+                  setActiveTab("space");
+                }}
+              >
+                <strong>飞船模式</strong>
+              </button>
+            ) : null}
+            {isBoxEnabled ? (
+              <button
+                type="button"
+                className={`play-mode-button ${activeMode === "box" ? "active" : ""}`.trim()}
+                onClick={() => {
+                  setActiveMode("box");
+                  setActiveTab("open");
+                }}
+              >
+                <strong>盲盒模式</strong>
+              </button>
+            ) : null}
           </div>
 
           {activeMode === "box" ? (

@@ -2562,118 +2562,6 @@ code,
     linear-gradient(145deg, rgba(148, 163, 184, 0.95) 0%, rgba(100, 116, 139, 0.88) 100%);
 }
 
-.game-stage-board-dice {
-  align-items: center;
-}
-
-.dice-stage-screen {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(52, 211, 153, 0.18);
-  background:
-    linear-gradient(180deg, rgba(6, 78, 59, 0.22) 0%, rgba(2, 6, 23, 0.82) 100%);
-}
-
-.dice-stage-screen span {
-  color: #86efac;
-  font-size: 0.74rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.dice-stage-screen strong {
-  font-family: "JetBrains Mono", monospace;
-  font-size: clamp(2rem, 8vw, 3.2rem);
-  font-weight: 900;
-  line-height: 1;
-  color: #f8fafc;
-}
-
-.dice-stage-screen small {
-  color: var(--text-soft);
-}
-
-.dice-stage-switches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 2px;
-}
-
-.dice-mode-chip,
-.dice-target-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(2, 6, 23, 0.78);
-  color: var(--text-soft);
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
-}
-
-.dice-mode-chip.active,
-.dice-target-chip.active {
-  background: linear-gradient(90deg, var(--yellow) 0%, var(--amber) 100%);
-  color: #020617;
-  border-color: rgba(250, 204, 21, 0.3);
-}
-
-.dice-stage-track {
-  position: relative;
-  height: 14px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.dice-stage-track-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.8) 0%, rgba(250, 204, 21, 0.9) 100%);
-  transition: width 220ms ease;
-}
-
-.dice-stage-track-fill.rolling {
-  animation: dice-track-pulse 720ms linear infinite alternate;
-}
-
-.dice-stage-marker {
-  position: absolute;
-  top: 50%;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.78);
-  background: #f8fafc;
-  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.16);
-  transform: translate(-50%, -50%);
-}
-
-.dice-stage-goal {
-  position: absolute;
-  top: 50%;
-  width: 2px;
-  height: 100%;
-  background: rgba(248, 250, 252, 0.72);
-  box-shadow: 0 0 0 3px rgba(248, 250, 252, 0.08);
-  transform: translate(-50%, -50%);
-}
-
-.dice-target-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .game-stage-tray {
   display: flex;
   flex-wrap: wrap;
@@ -2985,8 +2873,7 @@ code,
   font-weight: 900;
 }
 
-.coinflip-stage,
-.dice-stage-shell {
+.coinflip-stage {
   display: grid;
   gap: 16px;
 }
@@ -3062,157 +2949,6 @@ code,
   font-weight: 800;
 }
 
-.dice-roller-screen {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 14px;
-  padding: 24px 20px 20px;
-  border-radius: 28px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  background:
-    radial-gradient(circle at center, rgba(99, 102, 241, 0.08), transparent 44%),
-    rgba(2, 6, 23, 0.82);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-.dice-roller-screen.success {
-  border-color: rgba(52, 211, 153, 0.26);
-  box-shadow: 0 0 24px rgba(52, 211, 153, 0.16);
-}
-
-.dice-roller-screen.failure {
-  border-color: rgba(244, 63, 94, 0.24);
-  box-shadow: 0 0 24px rgba(244, 63, 94, 0.12);
-}
-
-.dice-roller-chip {
-  display: inline-grid;
-  gap: 3px;
-  justify-items: center;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(99, 102, 241, 0.16);
-  background: rgba(15, 23, 42, 0.86);
-}
-
-.dice-roller-chip span {
-  color: #a5b4fc;
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.dice-roller-chip strong {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.92rem;
-}
-
-.dice-roller-value {
-  font-family: "JetBrains Mono", monospace;
-  font-size: clamp(3.4rem, 10vw, 5.4rem);
-  font-weight: 900;
-  line-height: 1;
-  color: #f8fafc;
-}
-
-.dice-roller-bubble {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.8);
-  color: var(--text-soft);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.dice-roller-bubble.pending {
-  border-color: rgba(99, 102, 241, 0.18);
-  color: #a5b4fc;
-}
-
-.dice-roller-bubble.success {
-  border-color: rgba(52, 211, 153, 0.22);
-  color: #86efac;
-}
-
-.dice-roller-bubble.failure {
-  border-color: rgba(244, 63, 94, 0.22);
-  color: #fda4af;
-}
-
-.dice-slider-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(2, 6, 23, 0.68);
-}
-
-.dice-slider-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.dice-slider-label-row span {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.dice-slider-label-row strong {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 1rem;
-}
-
-.dice-slider-visual {
-  position: relative;
-  height: 28px;
-  display: flex;
-  align-items: center;
-}
-
-.dice-track-zone {
-  position: absolute;
-  top: 10px;
-  height: 8px;
-  background: rgba(30, 41, 59, 0.82);
-}
-
-.dice-track-zone.left {
-  left: 0;
-  border-radius: 999px 0 0 999px;
-}
-
-.dice-track-zone.right {
-  right: 0;
-  border-radius: 0 999px 999px 0;
-}
-
-.dice-track-zone.win {
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.92) 0%, rgba(250, 204, 21, 0.92) 100%);
-  box-shadow: 0 0 12px rgba(52, 211, 153, 0.18);
-}
-
-.dice-track-glow {
-  position: absolute;
-  top: 6px;
-  width: 8px;
-  height: 16px;
-  border-radius: 999px;
-  background: rgba(99, 102, 241, 0.95);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.48);
-}
-
 .custom-range-slider {
   position: absolute;
   inset: 0;
@@ -3241,14 +2977,6 @@ code,
   background: #818cf8;
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.48);
   cursor: pointer;
-}
-
-.dice-slider-ticks {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.72rem;
 }
 
 .arcade-console {
@@ -3357,96 +3085,6 @@ code,
   background:
     radial-gradient(circle at top, rgba(250, 204, 21, 0.16), transparent 34%),
     linear-gradient(180deg, rgba(69, 26, 3, 0.4) 0%, rgba(15, 23, 42, 0.94) 100%);
-}
-
-.dice-console {
-  display: grid;
-  gap: 12px;
-}
-
-.dice-slider-shell {
-  display: grid;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(2, 6, 23, 0.64);
-}
-
-.dice-slider-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.dice-slider-head span {
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.dice-slider-head strong {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 1.05rem;
-  color: var(--text);
-}
-
-.dice-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 14px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.7) 0%, rgba(250, 204, 21, 0.88) 100%);
-  outline: none;
-}
-
-.dice-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  background: #f8fafc;
-  box-shadow: 0 0 0 5px rgba(250, 204, 21, 0.18);
-  cursor: pointer;
-}
-
-.dice-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  background: #f8fafc;
-  box-shadow: 0 0 0 5px rgba(250, 204, 21, 0.18);
-  cursor: pointer;
-}
-
-.dice-console-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.dice-preset-pill {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.74);
-  color: var(--text-soft);
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.dice-preset-pill.active {
-  border-color: rgba(250, 204, 21, 0.3);
-  background: linear-gradient(90deg, var(--yellow) 0%, var(--amber) 100%);
-  color: #020617;
 }
 
 .game-launch-button {
@@ -3893,7 +3531,6 @@ code,
   text-shadow: 0 0 12px rgba(99, 102, 241, 0.28);
 }
 
-.physics-dice-canvas,
 .space-flight-canvas {
   position: absolute;
   inset: 0;
@@ -4722,15 +4359,6 @@ code,
   }
 }
 
-@keyframes dice-track-pulse {
-  0% {
-    filter: saturate(1);
-  }
-
-  100% {
-    filter: saturate(1.35) brightness(1.08);
-  }
-}
 
 @keyframes result-pop {
   0% {
@@ -4906,11 +4534,6 @@ code,
     min-width: 0;
   }
 
-  .dice-mode-chip,
-  .dice-target-chip {
-    flex: 1 1 0;
-    justify-content: center;
-  }
 }
 
 @media (max-width: 767px) {
