@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 import { WalletPanel } from "./WalletPanel";
-import { bscChain, hasBlockExplorer } from "../config/chains";
+import { bscChain } from "../config/chains";
 import { useAdminAccess } from "../hooks/useAdminAccess";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useReferralLanding } from "../hooks/useReferralLanding";
@@ -257,21 +257,15 @@ export function AppShell() {
                     <strong>{formatUsdPrice(tokenPrice?.priceUsd ?? null)}</strong>
                   </div>
                 </div>
-                {hasBlockExplorer ? (
-                  <a
-                    href={`${bscChain.blockExplorers.default.url}/address/${contractAddress}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hero-link-button"
-                  >
-                    <span>在区块浏览器查看</span>
-                    <ArrowUpRightIcon />
-                  </a>
-                ) : (
-                  <div className="hero-link-button hero-link-button-disabled">
-                    <span>本地预演链无区块浏览器</span>
-                  </div>
-                )}
+                <a
+                  href={`${bscChain.blockExplorers.default.url}/address/${contractAddress}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hero-link-button"
+                >
+                  <span>在 BscScan 查看</span>
+                  <ArrowUpRightIcon />
+                </a>
               </div>
             </section>
 
