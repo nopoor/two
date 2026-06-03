@@ -65,7 +65,8 @@ VRF_CALLBACK_GAS_LIMIT=600000
 
 - `DEPLOYER_PRIVATE_KEY`
   - 你实际执行部署的热钱包私钥
-  - 不带 `0x`
+  - 建议带 `0x`
+  - 当前部署脚本使用 `vm.envUint` 读取，十六进制私钥如果不带 `0x` 会解析失败
 
 - `BSC_RPC_URL`
   - 你的 BSC 主网 RPC 服务商

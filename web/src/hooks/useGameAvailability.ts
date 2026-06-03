@@ -44,7 +44,7 @@ export function useGameAvailability() {
       enabled: isEnabled(boxConfig.data),
       isLoading: boxConfig.isPending,
     },
-  } satisfies Record<PublicGameMode, { key: PublicGameMode; gameId: `0x${string}`; label: string; description: string; primaryTab: "open" | "space"; enabled: boolean; isLoading: boolean }>;
+  } satisfies Record<PublicGameMode, { key: PublicGameMode; gameId: `0x${string}`; label: string; primaryTab: "open" | "space"; enabled: boolean; isLoading: boolean }>;
 
   const orderedModes = publicGameCatalog
     .map((game) => games[game.key])

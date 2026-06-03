@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 import { WalletPanel } from "./WalletPanel";
-import { bscChain } from "../config/chains";
+import { bscChain, hasBlockExplorer } from "../config/chains";
 import { useAdminAccess } from "../hooks/useAdminAccess";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useReferralLanding } from "../hooks/useReferralLanding";
@@ -77,11 +77,12 @@ export function AppShell() {
   const isAdminRoute = location.pathname === "/admin";
   const isHomeRoute = location.pathname === "/";
   const isPlayRoute = location.pathname.startsWith("/play");
+  const adminSessionActive = access.isConnected && hasAdminAccess;
   const allowDisconnectedPlay = isPlayRoute && !access.isConnected;
   const showDisconnectedLanding = !access.isConnected && !allowDisconnectedPlay;
   const showPageStage = access.isConnected || allowDisconnectedPlay;
-  const showBottomNav = access.isConnected;
-  const navItems = hasAdminAccess ? [...publicNavItems, { to: "/admin", label: "🛠 管理中心", mobileLabel: "管理" }] : publicNavItems;
+  const showBottomNav = access.isConnected && !hasAdminAccess;
+  const navItems = publicNavItems;
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -172,6 +173,10 @@ export function AppShell() {
     return <Navigate to="/" replace />;
   }
 
+  if (adminSessionActive && !isAdminRoute && !isLoading) {
+    return <Navigate to="/admin" replace />;
+  }
+
   if (showDisconnectedLanding && !isHomeRoute) {
     return <Navigate to="/" replace />;
   }
@@ -221,7 +226,7 @@ export function AppShell() {
       </header>
 
       <main className={`site-main ${showBottomNav ? "site-main-with-bottom-nav" : ""}`.trim()}>
-        {!hasAdminAccess && isHomeRoute ? (
+        {!adminSessionActive && isHomeRoute ? (
           <>
             <section className="hero-banner">
               <div className="hero-banner-copy">
@@ -252,15 +257,21 @@ export function AppShell() {
                     <strong>{formatUsdPrice(tokenPrice?.priceUsd ?? null)}</strong>
                   </div>
                 </div>
-                <a
-                  href={`${bscChain.blockExplorers.default.url}/address/${contractAddress}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hero-link-button"
-                >
-                  <span>在 BscScan 查看</span>
-                  <ArrowUpRightIcon />
-                </a>
+                {hasBlockExplorer ? (
+                  <a
+                    href={`${bscChain.blockExplorers.default.url}/address/${contractAddress}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hero-link-button"
+                  >
+                    <span>在区块浏览器查看</span>
+                    <ArrowUpRightIcon />
+                  </a>
+                ) : (
+                  <div className="hero-link-button hero-link-button-disabled">
+                    <span>本地预演链无区块浏览器</span>
+                  </div>
+                )}
               </div>
             </section>
 

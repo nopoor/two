@@ -228,34 +228,13 @@ export function AdminPage() {
 
   return (
     <div className="vault-page-stack">
-      <SectionCard eyebrow="管理入口" title="營運權限" description="此页展示当前地址的系统角色，并开放核心运营动作。">
-        {hasAnyRole ? (
-          <div className="portfolio-grid">
-            <div className="portfolio-card">
-              <span>系統狀態</span>
-              <strong>{paused.data ? "已暫停" : "運行中"}</strong>
-              <p className="state-note">依合约实时状态显示。</p>
-            </div>
-            {roles.map((role, index) => (
-              <div key={role.key} className="portfolio-card">
-                <span>{role.label}</span>
-                <strong>{roleChecks[index].data ? "已啟用" : "未啟用"}</strong>
-                <p className="state-note">{roleChecks[index].data ? "此地址具备对应权限。" : "此地址未持有此角色。"}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">此地址未开通管理权限</div>
-        )}
-
-        <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
-      </SectionCard>
+      <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
 
       <SectionCard title="系統開關" description="暂停会影响下注、退款、分红领取等受控流程。">
         <div className="claim-action-row">
           <div className="claim-action-copy">
             <strong>{paused.data ? "系统已暂停" : "系统运行中"}</strong>
-            <span>{paused.data ? "仅管理员可恢复系统" : "拥有 PAUSER_ROLE 的地址可紧急暂停"}</span>
+            <span>{paused.data ? "仅管理员可恢复系统" : "可在此执行暂停控制"}</span>
           </div>
           <div className="claim-action-buttons">
             <button className="warning-button" disabled={actionLocked || !canPause} onClick={() => void handlePauseToggle("pause")}>
@@ -268,7 +247,7 @@ export function AdminPage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="遊戲上線控制" description="owner 钱包可在这里分阶段开放游戏；运营钱包默认不持有此权限。">
+      <SectionCard title="遊戲上線控制">
         <div className="form-shell">
           {gameAvailability.isLoading ? (
             <div className="empty-state">读取游戏状态中</div>
@@ -278,7 +257,6 @@ export function AdminPage() {
                 <div key={game.key} className="portfolio-card">
                   <span>{game.label}</span>
                   <strong>{game.enabled ? "已上线" : "未上线"}</strong>
-                  <p className="state-note">{game.description}</p>
                   <div className="claim-action-buttons">
                     <button
                       className={game.enabled ? "warning-button" : "primary-button"}
@@ -295,7 +273,7 @@ export function AdminPage() {
           {!canManageGames ? (
             <div className="status-banner">
               <strong>当前地址没有游戏开关权限</strong>
-              <span>请使用 owner 钱包或持有 GAME_ADMIN_ROLE 的地址连接后台。</span>
+              <span>仅owner钱包连接后可操作</span>
             </div>
           ) : null}
         </div>

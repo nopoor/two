@@ -16,6 +16,20 @@
 - 游戏开关
 - 普通用户隐藏逻辑
 
+但要注意：
+
+- 即使这轮你只是想测前端显示
+- 当前仓库的部署脚本仍然会**一次性部署整套合约**
+- 其中包含 `DividendBankNFT`
+
+所以这轮本地预演里，下面这些 NFT 字段依然是**必填项**：
+
+- `NFT_NAME`
+- `NFT_SYMBOL`
+- `NFT_BASE_URI`
+- `NFT_ROYALTY_RECEIVER`
+- `NFT_ROYALTY_BPS`
+
 这次预演**先不强求**完整测试：
 
 - VRF 开奖
@@ -31,16 +45,17 @@
 
 推荐采用：
 
-- **本地 BSC fork**
+- **本地 Anvil fork**
 - **本地模拟 owner / 运营 / 普通用户钱包**
 - **本地部署一套合约**
 - **本地跑前端**
 
 原因：
 
-1. 当前前端固定按 `BNB Smart Chain` 的链配置工作。
+1. 当前前端已经支持通过环境变量切换预演链配置。
 2. 你可以不碰老板真实钱包。
 3. 能非常接近正式主网的显示和权限逻辑。
+4. 页面读链和钱包写链会走同一条本地链，不会再出现“读的是本地，签的是主网”的问题。
 
 ---
 
@@ -93,7 +108,7 @@
 
 ---
 
-## 第 1 步：启动本地 BSC fork
+## 第 1 步：启动本地 Anvil fork
 
 进入项目目录：
 
@@ -104,19 +119,20 @@ cd /Users/chih/Documents/NFT/分红银行
 执行：
 
 ```bash
-anvil --fork-url 你的BSC主网RPC --chain-id 56
+anvil --fork-url 你的BSC主网RPC --chain-id 31337
 ```
 
 例如：
 
 ```bash
-anvil --fork-url https://bsc-dataseed.binance.org --chain-id 56
+anvil --fork-url https://bsc-dataseed.binance.org --chain-id 31337
 ```
 
-这一步为什么要 `chain-id 56`：
+这一步为什么改成 `31337`：
 
-- 当前前端链配置固定是 BSC 主网
-- 如果本地链 ID 不是 `56`，前端钱包接入会不顺
+- 钱包里可以把它当作一条独立的本地预演链来添加
+- 不会和真实 BSC 主网混淆
+- owner / 运营 / 普通用户都能直接对这条本地链签名发交易
 
 看到本地节点监听：
 
@@ -154,9 +170,9 @@ FLAP_DIVIDEND=0x7BAf5A394183Ff0C3592aD5980Db524CD2e7881E
 WBNB_TOKEN=0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
 PANCAKE_ROUTER_V2=0x10ED43C718714eb63d5aA57B78B54704E256024E
 
-NFT_NAME=Dividend Bank Genesis
-NFT_SYMBOL=DBANK
-NFT_BASE_URI=https://preview.example.com/metadata/
+NFT_NAME="Dividend Bank Genesis"
+NFT_SYMBOL="DBANK"
+NFT_BASE_URI="https://preview.example.com/metadata/"
 NFT_ROYALTY_RECEIVER=
 NFT_ROYALTY_BPS=400
 
@@ -190,8 +206,25 @@ BUYBACK_MIN_FLAP_OUT=1
 
 ### 这些字段怎么填
 
+先说最容易踩坑的一点：
+
+- 这几个 NFT 字段虽然只是给本地预演用
+- 但**不能留空**
+- 否则部署脚本会直接在 `vm.envString(...)` / `vm.envAddress(...)` 这里报错
+
+如果你只是做本地预演，可以先这样填一套占位值：
+
+```env
+NFT_NAME="Dividend Bank Genesis Preview"
+NFT_SYMBOL="DBP"
+NFT_BASE_URI="https://preview.example.com/metadata/"
+NFT_ROYALTY_RECEIVER=本地owner钱包地址
+NFT_ROYALTY_BPS=400
+```
+
 - `DEPLOYER_PRIVATE_KEY`
   - 填本地部署钱包私钥
+  - 建议带 `0x`
 
 - `MULTISIG_ADMIN`
   - 填本地 owner 钱包地址
@@ -247,6 +280,11 @@ BUYBACK_MIN_FLAP_OUT=1
 
 ```env
 VITE_WALLETCONNECT_PROJECT_ID=
+VITE_CHAIN_ID=31337
+VITE_CHAIN_NAME=Anvil Local Preview
+VITE_CHAIN_CURRENCY_NAME=BNB
+VITE_CHAIN_CURRENCY_SYMBOL=BNB
+VITE_BLOCK_EXPLORER_URL=
 VITE_BSC_RPC_URL=http://127.0.0.1:8545
 
 VITE_FLAP_TOKEN_ADDRESS=0x1b2884470a5de9a39dc234a20141146de6b67777
@@ -266,6 +304,8 @@ VITE_NFT_REVENUE_DISTRIBUTOR_ADDRESS=
 现在先填：
 
 - `VITE_WALLETCONNECT_PROJECT_ID`
+- `VITE_CHAIN_ID=31337`
+- `VITE_CHAIN_NAME=Anvil Local Preview`
 - `VITE_BSC_RPC_URL`
 
 后面的合约地址，等部署完成后再回填。
@@ -286,6 +326,25 @@ cd /Users/chih/Documents/NFT/分红银行
 cp .env.preview .env
 ```
 
+然后把 `.env` 里的字段导出到当前 shell：
+
+```bash
+set -a
+source .env
+set +a
+```
+
+注意：
+
+- `forge` 的 `vm.envString(...)`、`vm.envAddress(...)`、`vm.envUint(...)`
+- 读取的是**当前进程环境变量**
+- 不是单纯读取你磁盘上的 `.env` 文件内容
+
+所以：
+
+- 只执行 `cp .env.preview .env` 还不够
+- 必须再 `source` 并导出一次
+
 执行部署：
 
 ```bash
@@ -294,7 +353,7 @@ forge script script/DeployGameFi.s.sol:DeployGameFi --rpc-url http://127.0.0.1:8
 
 部署成功后，会生成：
 
-- `/Users/chih/Documents/NFT/分红银行/deployments/56.json`
+- `/Users/chih/Documents/NFT/分红银行/deployments/31337.json`
 
 ---
 
@@ -302,7 +361,7 @@ forge script script/DeployGameFi.s.sol:DeployGameFi --rpc-url http://127.0.0.1:8
 
 打开：
 
-- `/Users/chih/Documents/NFT/分红银行/deployments/56.json`
+- `/Users/chih/Documents/NFT/分红银行/deployments/31337.json`
 
 把这些字段回填进：
 
@@ -359,38 +418,21 @@ npm run dev
 
 这是整个预演里**最重要的一步**。
 
-### 前端读链和钱包发交易不是一回事
+这次不要再去改真实 BSC 主网 RPC。
 
-即使你前端配置了：
+请在钱包里**新增一条本地预演链**，参数如下：
 
-- `VITE_BSC_RPC_URL=http://127.0.0.1:8545`
+- Network Name: `Anvil Local Preview`
+- RPC URL: `http://127.0.0.1:8545`
+- Chain ID: `31337`
+- Currency Symbol: `BNB`
 
-也只代表：
+这样做的好处是：
 
-- 页面读取链上数据时，优先走本地 RPC
-
-但是：
-
-- 你点击后台按钮发交易时
-- 真正签名和广播，是钱包自己的网络设置决定的
-
-### 所以必须保证
-
-测试用钱包当前连接的 BSC 网络 RPC，也要指向：
-
-- `http://127.0.0.1:8545`
-
-### 强烈建议
-
-不要动你平时正式使用的钱包环境。
-
-请用：
-
-- 单独浏览器 Profile
-- 单独钱包插件环境
-- 或者一套专门测试的钱包
-
-避免误把正式 BSC RPC 改成本地。
+- 页面读链走本地 `31337`
+- 钱包签名发交易也走本地 `31337`
+- 不会再误触真主网 gas
+- 也不会污染你平时用的 BSC 主网配置
 
 ---
 
@@ -436,8 +478,8 @@ npm run dev
 
 用本地 owner 钱包连接后，检查：
 
-1. 能看到管理中心入口
-2. 能进入：
+1. 不显示公开页面导航
+2. 连接后应自动进入：
 
 ```text
 /admin
