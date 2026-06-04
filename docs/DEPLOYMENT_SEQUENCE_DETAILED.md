@@ -1,5 +1,34 @@
 # 分红银行 GameFi 详细部署顺序说明
 
+## 本次主网已确认配置
+
+- NFT 名称：`分红银行`
+- NFT 简称：`分红银行`
+- NFT 版税：`400` bps，即 `4%`
+- 当前执行口径：使用你的钱包代部署整套合约
+- 代部署钱包定位：仅负责部署、验证、铸造和交权前临时执行
+- 最终结果要求：交权完成后，该代部署钱包不再保留任何系统权限或 NFT 管理权限
+- 主钱包：`0xEa9eDE1d6Fb9aDe1398Fe2423AeaAA64d7364d01`
+- 主钱包用途：`owner` + NFT 版税接收
+- 运营自动化钱包：`0x487aA7Fc6643A20Ea816DEA562FBc53D4AB0cA8b`
+- 运营自动化钱包用途：仅用于日常自动化脚本
+- 正式 dApp 域名：`https://www.dividendbank.com`
+
+## 执行前提醒
+
+- 所有 `forge script` 示例在执行前，都应先把 `.env` 导出到当前 shell 环境。
+- 推荐统一使用：
+
+```bash
+set -a
+source .env
+set +a
+```
+
+- 老板已单独提供运营自动化钱包私钥，但出于安全原因，不在仓库文档中记录明文私钥。
+- 如需由自动化钱包执行日常广播脚本，请在本地 `.env` 手工填写 `DEPLOYER_PRIVATE_KEY`，并确保 `.env` 不入库。
+- 当前执行原则是“你的钱包代部署，主钱包接最终权限”，因此部署钱包只在交权前临时持权。
+
 ## 这份文档解决什么问题
 
 这份文档专门回答两个问题：
@@ -156,17 +185,21 @@ NFT 分红不是“铸了就自动有收益”，而是依赖：
 - `MULTISIG_ADMIN`
   - 填 owner 钱包
   - 这是最终最高权限地址，也适合同时作为 NFT 版税接收钱包
+  - 本次主网确认地址：`0xEa9eDE1d6Fb9aDe1398Fe2423AeaAA64d7364d01`
 - `NFT_ROYALTY_RECEIVER`
   - 直接填 owner 钱包
+  - 本次主网确认地址：`0xEa9eDE1d6Fb9aDe1398Fe2423AeaAA64d7364d01`
 - `OPERATOR_WALLET`
   - 填运营钱包
   - 负责退款等日常运营动作
+  - 如果本次未单独确认该角色地址，先不要在文档中假定与自动化钱包相同
 - `REVENUE_OPERATOR_WALLET`
   - 也可以直接填同一个运营钱包
   - 负责收益处理和回购
 - `AUTOMATION_WALLET`
   - 也可以直接填同一个运营钱包
   - 负责每日 NFT 快照自动化
+  - 本次主网确认地址：`0x487aA7Fc6643A20Ea816DEA562FBc53D4AB0cA8b`
 
 ### 3. 确认 NFT 基础信息
 
@@ -176,6 +209,123 @@ NFT 分红不是“铸了就自动有收益”，而是依赖：
 - `NFT_SYMBOL`
 - `NFT_BASE_URI`
 - `NFT_ROYALTY_BPS`
+- 本次主网建议直接固定为：
+  - `NFT_NAME=分红银行`
+  - `NFT_SYMBOL=分红银行`
+  - `NFT_ROYALTY_RECEIVER=0xEa9eDE1d6Fb9aDe1398Fe2423AeaAA64d7364d01`
+  - `NFT_ROYALTY_BPS=400`
+
+这里还要额外确认一件非常实际的事：
+
+- `NFT_BASE_URI` 对应的元数据托管已经可以被公网正常访问
+
+推荐直接使用：
+
+- `NFT_BASE_URI=https://assets.dividendbank.com/nft/`
+
+### 3.1 NFT 元数据托管到底要准备什么
+
+不是只创建一个文件夹就结束，而是要同时准备：
+
+1. 资产域名
+   - 例如 `assets.dividendbank.com`
+2. 服务器站点配置
+   - 让该域名真正返回 JSON 和图片
+3. 元数据文件
+   - 至少覆盖要先 mint 的 token id
+4. 图片文件
+   - 与元数据里的 `image` 字段一致
+5. HTTPS
+   - 钱包和市场读取更稳定
+6. 批量生成脚本
+   - 当前仓库已提供 `node tools/generate-nft-metadata.mjs`
+
+### 3.2 当前合约对元数据路径的真实要求
+
+当前合约会直接返回：
+
+- `NFT_BASE_URI + tokenId`
+
+不是：
+
+- `NFT_BASE_URI + tokenId + ".json"`
+
+所以如果你填写：
+
+```env
+NFT_BASE_URI=https://assets.dividendbank.com/nft/
+```
+
+那么实际必须能访问：
+
+- `https://assets.dividendbank.com/nft/1`
+- `https://assets.dividendbank.com/nft/2`
+- ...
+
+### 3.3 推荐的服务器和目录结构
+
+如果 `assets.dividendbank.com` 和 `www.dividendbank.com` 共用同一台服务器，完全可以。
+
+推荐目录：
+
+```text
+/var/www/dividendbank/web/dist/
+/var/www/dividendbank/assets/nft/
+/var/www/dividendbank/assets/images/
+```
+
+推荐文件：
+
+```text
+/var/www/dividendbank/assets/nft/1
+/var/www/dividendbank/assets/nft/2
+/var/www/dividendbank/assets/images/001.PNG
+/var/www/dividendbank/assets/images/002.PNG
+```
+
+### 3.3.1 你现在这批 `001.PNG` 到 `420.PNG` 图片怎么接
+
+当前仓库已提供批量生成脚本：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+node tools/generate-nft-metadata.mjs
+```
+
+默认会生成：
+
+```text
+metadata/generated/1
+metadata/generated/2
+...
+metadata/generated/420
+```
+
+并自动按以下规则引用图片：
+
+- `tokenId 1 -> 001.PNG`
+- `tokenId 2 -> 002.PNG`
+- `tokenId 3 -> 003.PNG`
+- ...
+- `tokenId 420 -> 420.PNG`
+
+也就是说，你不用手写 420 份 JSON。
+
+### 3.4 为什么这一步应该放在 mint 前面
+
+因为如果先 mint，再慢慢补元数据：
+
+- 钱包里可能先显示为空白
+- Element 识别合集时可能先抓到不完整数据
+- 后面虽然能修，但会增加首发阶段的沟通成本
+
+所以更稳的顺序是：
+
+1. 先把元数据域名和文件准备好
+   - 包括先跑一遍元数据生成脚本
+2. 再部署
+3. 再小批量 mint
+4. 再上 Element
 
 ### 4. 确认资金准备
 
@@ -366,6 +516,8 @@ forge script script/MintDividendBankNft.s.sol:MintDividendBankNft --rpc-url $BSC
 - `VITE_WALLETCONNECT_PROJECT_ID`
 - `VITE_BSC_RPC_URL`
 - `VITE_ELEMENT_NFT_URL`（如果 Element 页面已经可访问）
+- 正式站点域名 `https://www.dividendbank.com`
+- NFT 元数据资产域名 `https://assets.dividendbank.com`
 
 ### 2. 构建前端
 
@@ -458,6 +610,12 @@ cd /Users/chih/Documents/NFT/分红银行
 source .env
 forge script script/FinalizeMultisigHandover.s.sol:FinalizeMultisigHandover --rpc-url $BSC_RPC_URL --broadcast
 ```
+
+交权完成后应满足：
+
+- 主钱包成为唯一最终控制入口。
+- 你的代部署钱包完成全部 `renounce`。
+- 你的代部署钱包不再保留任何系统角色，也不再保留 NFT 管理权限。
 
 ## 关于“是否可以先发行 NFT”的详细判断
 

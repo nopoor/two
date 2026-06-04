@@ -1,5 +1,34 @@
 # 分红银行 GameFi 部署与运营文档
 
+## 本次主网已确认配置
+
+- NFT 名称：`分红银行`
+- NFT 简称：`分红银行`
+- NFT 版税：`400` bps，即 `4%`
+- 当前执行口径：使用你的钱包代部署整套合约
+- 代部署钱包定位：仅负责部署、验证、铸造和交权前临时执行
+- 最终结果要求：交权完成后，该代部署钱包不再保留任何系统权限或 NFT 管理权限
+- 主钱包：`0xEa9eDE1d6Fb9aDe1398Fe2423AeaAA64d7364d01`
+- 主钱包用途：`owner` + NFT 版税接收
+- 运营自动化钱包：`0x487aA7Fc6643A20Ea816DEA562FBc53D4AB0cA8b`
+- 运营自动化钱包用途：仅用于日常自动化脚本
+- 正式 dApp 域名：`https://www.dividendbank.com`
+
+## 执行前提醒
+
+- 所有 `forge script` 示例在执行前，都应先把 `.env` 导出到当前 shell 环境。
+- 推荐统一使用：
+
+```bash
+set -a
+source .env
+set +a
+```
+
+- 老板已单独提供运营自动化钱包私钥，但出于安全原因，不在仓库文档中记录明文私钥。
+- 如需用该钱包执行自动化广播脚本，请在本地 `.env` 手工填写 `DEPLOYER_PRIVATE_KEY`，并确保 `.env` 不提交到 git。
+- 当前执行原则是“你的钱包代部署，主钱包接最终权限”，所以部署钱包只做临时执行，不作为最终权限地址保留。
+
 ## 前置检查
 
 - 每次主网上线或变更前，都要先复核线上 FLAP 代币行为。
@@ -9,6 +38,7 @@
 - WBNB 回购会经过 `mainPool`，因此会受当前主池交易税规则影响。
 - 部署钱包只作为临时部署、验证、铸造执行钱包使用。
 - 验证完成后，要把最终权限交给运营方/发行方地址或多签地址。
+- 最终交权完成后，部署钱包不应再保留任何系统角色或 NFT 管理角色。
 
 ## 环境配置
 
@@ -37,6 +67,8 @@
 
 1. 在 `.env` 中填写主网地址和运营权限地址。
 2. 如果运营方和发行方是同一个钱包，将同一个地址填入 `MULTISIG_ADMIN`、`NFT_ROYALTY_RECEIVER`、`OPERATOR_WALLET`、`PAUSER_WALLET`、`REVENUE_OPERATOR_WALLET`、`AUTOMATION_WALLET`、`NFT_MINTER_WALLET`、`NFT_METADATA_WALLET`。
+   - 本次已确认主钱包为 `0xEa9eDE1d6Fb9aDe1398Fe2423AeaAA64d7364d01`，至少应填写到 `MULTISIG_ADMIN` 和 `NFT_ROYALTY_RECEIVER`。
+   - 本次已确认自动化脚本钱包为 `0x487aA7Fc6643A20Ea816DEA562FBc53D4AB0cA8b`，至少应填写到 `AUTOMATION_WALLET`。
 3. 部署、NFT 铸造、Element 上架检查、最终交权全部完成前，部署钱包保留为临时执行钱包。
 4. 在 Chainlink VRF 管理界面先创建或确认主网 subscription，并记录 `.env` 需要的以下参数：
    - `VRF_COORDINATOR`
@@ -134,11 +166,129 @@ npm run build
 1. 在 Element 中使用 `DIVIDEND_BANK_NFT` 作为合集合约地址。
 2. 确认 Element 正确展示合集名称、symbol、元数据、总量和持有人余额。
 3. 将 Element 合集 royalty receiver 设置为 `NFT_ROYALTY_RECEIVER` 对应的运营方/发行方钱包。
-4. 将 Element royalty 百分比设置为和 `NFT_ROYALTY_BPS` 一致，例如 `500` bps 表示 `5%`。
+4. 将 Element royalty 百分比设置为和 `NFT_ROYALTY_BPS` 一致；本次主网方案固定为 `400` bps，即 `4%`。
 5. 首发销售采用“运营方/发行方钱包持有 NFT 后在 Element 挂单”的方式，因此首发销售款会直接进入运营方/发行方钱包。
 6. 二级转售版税由 Element 市场执行。NFT 合约已经暴露 ERC2981 版税信息，但钱包直接转账、或不执行版税的市场，不会强制支付二级版税。
 7. Element 合集页可访问后，将其 URL 回填到 `web/.env` 的 `VITE_ELEMENT_NFT_URL`，让前端显示购买入口。
 8. 除非运营方/发行方钱包已经拥有 `MINTER_ROLE`，否则要先完成 NFT 铸造和 Element 合集检查，再执行 `FinalizeMultisigHandover`。
+
+## NFT 元数据托管与发布
+
+### 1. 先说结论
+
+NFT 元数据不是“只建文件夹就行”，还需要：
+
+- 资产域名
+- 服务器站点配置
+- 可访问的 JSON 文件
+- 可访问的图片文件
+- HTTPS
+
+推荐正式使用：
+
+- dApp 域名：`https://www.dividendbank.com`
+- 资产域名：`https://assets.dividendbank.com`
+
+这两个域名可以解析到同一台服务器 IP，但服务器上要分别配置成两个站点。
+
+### 2. 当前合约如何读取元数据
+
+当前 NFT 合约会把：
+
+- `NFT_BASE_URI`
+- `tokenId`
+
+直接拼接成最终 `tokenURI`。
+
+因此如果 `.env` 里填写：
+
+```env
+NFT_BASE_URI=https://assets.dividendbank.com/nft/
+```
+
+那么链上最终读取的是：
+
+- `https://assets.dividendbank.com/nft/1`
+- `https://assets.dividendbank.com/nft/2`
+- ...
+
+不是默认读取：
+
+- `https://assets.dividendbank.com/nft/1.json`
+
+### 3. 推荐目录结构
+
+```text
+/var/www/dividendbank/web/dist/
+/var/www/dividendbank/assets/nft/
+/var/www/dividendbank/assets/images/
+```
+
+推荐文件：
+
+```text
+/var/www/dividendbank/assets/nft/1
+/var/www/dividendbank/assets/nft/2
+/var/www/dividendbank/assets/images/001.PNG
+/var/www/dividendbank/assets/images/002.PNG
+```
+
+### 4. 元数据示例
+
+```json
+{
+  "name": "分红银行 #1",
+  "description": "分红银行 Genesis NFT",
+  "image": "https://assets.dividendbank.com/images/001.PNG",
+  "attributes": [
+    {
+      "trait_type": "Series",
+      "value": "Genesis"
+    }
+  ]
+}
+```
+
+### 5. 正式部署前的检查动作
+
+1. 确认 `www.dividendbank.com` 和 `assets.dividendbank.com` 都已解析到目标服务器。
+2. 确认两个域名都已配置 HTTPS。
+3. 在本地先批量生成元数据：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+node tools/generate-nft-metadata.mjs
+```
+
+默认生成目录：
+
+```text
+/Users/chih/Documents/NFT/分红银行/metadata/generated/
+```
+
+该脚本默认已适配当前图片命名规则：
+
+- `001.PNG`
+- `002.PNG`
+- ...
+- `420.PNG`
+
+4. 确认浏览器可以直接访问：
+   - `https://assets.dividendbank.com/nft/1`
+   - `https://assets.dividendbank.com/images/001.PNG`
+5. 确认 `.env` 中填写：
+
+```env
+NFT_BASE_URI=https://assets.dividendbank.com/nft/
+```
+
+6. 确认小批量 mint 前，至少前几个 token 的元数据已经可读。
+7. 如果需要修改统一描述文案，可重新执行：
+
+```bash
+cd /Users/chih/Documents/NFT/分红银行
+node tools/generate-nft-metadata.mjs --description "分红银行正式版 NFT"
+```
 
 ## NFT 铸造、分发与流转自测
 
@@ -205,6 +355,7 @@ npm run build
 ```
 
 3. 确认构建产物位于 `web/dist`。
+4. 确认正式站点域名为 `https://www.dividendbank.com`，并规划好静态资源/CDN 发布路径。
 
 ### 2. 发布后烟雾测试
 
@@ -216,6 +367,7 @@ npm run build
 4. 收益页：可读取当前 day id、历史未领取分红、批量补领按钮状态。
 5. 邀请页：可生成推荐链接、复制链接。
 6. 管理页：有权限的钱包能看到角色状态、暂停/恢复、快照、退款入口。
+7. `https://www.dividendbank.com` 已正确加载最新前端构建和最新地址配置。
 
 ### 3. 主网前端交易验证
 
@@ -304,12 +456,14 @@ npm run build
 ### 1. 日常角色分工
 
 - `DEFAULT_ADMIN_ROLE`：最终管理员，多签或最终控制钱包。
-- `OPERATOR_ROLE`：VRF 配置、退款处理、游戏参数运维。
+- `OPERATOR_ROLE`：VRF 配置、退款处理。
 - `PAUSER_ROLE`：紧急暂停。
 - `REVENUE_ROLE`：收益回收、回购、快照参数调整。
+- `GAME_ADMIN_ROLE`：游戏注册、模块升级、游戏上下线控制。
 - `AUTOMATION_ROLE`：每日 NFT 快照执行。
 - `MINTER_ROLE`：NFT 铸造。
 - `METADATA_ROLE`：NFT 元数据更新。
+- 本次已明确的自动化执行地址为 `0x487aA7Fc6643A20Ea816DEA562FBc53D4AB0cA8b`，建议至少承担 `AUTOMATION_ROLE`。
 
 ### 2. 日常操作频率
 
@@ -324,6 +478,7 @@ npm run build
 
 - 查看当前地址角色状态。
 - `pause()` / `unpause()`。
+- 游戏上下线控制。
 - 执行当日 `snapshotAndPull()`。
 - 按注单编号执行 `refundPendingBet()`。
 
@@ -427,6 +582,7 @@ forge script script/FinalizeMultisigHandover.s.sol:FinalizeMultisigHandover --rp
 
 6. 确认部署钱包已经不再拥有 admin、pauser、revenue、NFT admin 等权限。
 7. 确认运营方/发行方钱包已经拥有预期的系统 admin、revenue、operator、automation、NFT admin、NFT minter、NFT metadata 权限。
+8. 确认你的代部署钱包已经完全退出权限体系，不再作为长期运维钱包使用。
 
 ## 合约验证
 

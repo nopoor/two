@@ -37,6 +37,8 @@ type SpacePredictionPanelProps = {
   showBackLink?: boolean;
 };
 
+type ResultRevealPhase = "idle" | "impact" | "card";
+
 function formatDisplayToken(value?: bigint, fractionDigits = 2) {
   if (value === undefined) return "--";
   return Number(formatEther(value)).toLocaleString("zh-CN", {
@@ -66,10 +68,12 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [wagerUnits, setWagerUnits] = useState("1");
   const [guessUp, setGuessUp] = useState(true);
+  const [submittedGuessUp, setSubmittedGuessUp] = useState<boolean | undefined>();
   const [trackedBetId, setTrackedBetId] = useState<bigint | undefined>();
   const [trackedFromBlock, setTrackedFromBlock] = useState<bigint | undefined>();
   const [resolvedRound, setResolvedRound] = useState<SpaceRound | undefined>();
   const [refundedBetId, setRefundedBetId] = useState<bigint | undefined>();
+  const [revealPhase, setRevealPhase] = useState<ResultRevealPhase>("idle");
 
   const wagerValue = Number.parseFloat(wagerUnits);
   const normalizedWager = Number.isFinite(wagerValue) && wagerValue > 0 ? clamp(Math.round(wagerValue), 1, maxWagerMultiplier) : 0;
@@ -116,6 +120,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const hasReferrerConflict = Boolean(boundReferrer && referrer && boundReferrer.toLowerCase() !== referrer.toLowerCase());
   const effectiveReferrer = boundReferrer ?? referrer;
   const writeDisabled = actionLocked || normalizedWager === 0 || hasPendingBet || trackedBetId !== undefined;
+  const displayedGuessUp = resolvedRound?.guessUp ?? submittedGuessUp ?? guessUp;
   const maxPayout = wagerPreview ? (wagerPreview * 194n) / 100n : 0n;
   const isResolvingRound =
     actionMode === "bet"
@@ -123,6 +128,31 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
       || tx.phase === "sending"
       || tx.phase === "confirming"
       || (trackedBetId !== undefined && resolvedRound === undefined));
+  const showResultCard = resolvedRound !== undefined && revealPhase === "card";
+  const boardOverlayTitle = isResolvingRound
+      ? "LOCKING..."
+      : resolvedRound
+        ? (resolvedRound.landedUp ? "UP" : "DOWN")
+        : (displayedGuessUp ? "UP ROUTE" : "DOWN ROUTE");
+  const boardOverlaySubtitle = isResolvingRound
+    ? "等待星图回传"
+    : resolvedRound
+      ? (resolvedRound.won ? "命中航线" : "偏离航线")
+      : (displayedGuessUp ? "看涨飞升" : "看跌坠落");
+  const boardClassName = [
+    "space-ship-board",
+    isResolvingRound ? "resolving" : "",
+    resolvedRound ? `outcome-${resolvedRound.landedUp ? "up" : "down"}` : "",
+    resolvedRound ? `outcome-${resolvedRound.won ? "win" : "loss"}` : "",
+    resolvedRound && revealPhase === "impact" ? "result-impact" : "",
+    resolvedRound && revealPhase === "card" ? "result-settled" : "",
+  ].filter(Boolean).join(" ");
+  const shipClassName = [
+    "space-ship",
+    displayedGuessUp ? "heading-up" : "heading-down",
+    isResolvingRound ? "charging" : "",
+    resolvedRound && revealPhase === "impact" ? (resolvedRound.landedUp ? "burst-up" : "burst-down") : "",
+  ].filter(Boolean).join(" ");
 
   const actionConfig =
     access.writeState === "ready" && needsApproval
@@ -161,6 +191,15 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   }, [actionMode, pendingBetId.data, tx.phase, tx.receipt?.blockNumber]);
 
   useEffect(() => {
+    if (!resolvedRound) return;
+    setRevealPhase("impact");
+    const timer = window.setTimeout(() => {
+      setRevealPhase("card");
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [resolvedRound]);
+
+  useEffect(() => {
     if (!publicClient || !contracts.gameManager || trackedBetId === undefined || trackedFromBlock === undefined || resolvedRound) {
       return;
     }
@@ -197,6 +236,8 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             setTrackedBetId(undefined);
             setTrackedFromBlock(undefined);
             setRefundedBetId(currentTrackedBetId);
+            setRevealPhase("idle");
+            setSubmittedGuessUp(undefined);
           }
           return;
         }
@@ -279,6 +320,8 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
     setActionMode("bet");
     setResolvedRound(undefined);
     setRefundedBetId(undefined);
+    setRevealPhase("idle");
+    setSubmittedGuessUp(guessUp);
     tx.setAwaitingSignature();
 
     try {
@@ -312,27 +355,33 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             {showBackLink ? <Link to="/play" className="space-back-link">返回游戏大厅</Link> : null}
           </div>
 
-          <div className={`space-ship-board ${isResolvingRound ? "resolving" : ""} ${resolvedRound ? (resolvedRound.landedUp ? "landed-up" : "landed-down") : ""}`.trim()}>
+          <div className={boardClassName}>
             <div className="space-ship-grid" />
-            <div className={`space-ship ${guessUp ? "heading-up" : "heading-down"}`.trim()}>
+            <div className={shipClassName}>
               <div className="space-ship-hull" />
               <div className="space-ship-engine" />
             </div>
             <div className="space-ship-trail" />
+            <div className={`space-board-overlay ${(isResolvingRound || resolvedRound) ? "visible" : ""} ${resolvedRound ? (resolvedRound.won ? "success" : "failure") : ""}`.trim()}>
+              <span className="space-board-overlay-badge">{boardOverlayTitle}</span>
+              <strong>{boardOverlaySubtitle}</strong>
+            </div>
           </div>
 
           <div className="space-direction-switch">
             <button
               type="button"
-              className={`space-direction-button ${guessUp ? "active" : ""}`.trim()}
+              className={`space-direction-button ${displayedGuessUp ? "active" : ""}`.trim()}
               onClick={() => setGuessUp(true)}
+              disabled={isResolvingRound}
             >
               看涨飞升
             </button>
             <button
               type="button"
-              className={`space-direction-button ${!guessUp ? "active" : ""}`.trim()}
+              className={`space-direction-button ${!displayedGuessUp ? "active" : ""}`.trim()}
               onClick={() => setGuessUp(false)}
+              disabled={isResolvingRound}
             >
               看跌坠落
             </button>
@@ -367,7 +416,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
           <button
             type="button"
-            className={`space-primary-button ${guessUp ? "up" : "down"}`.trim()}
+            className={`space-primary-button ${displayedGuessUp ? "up" : "down"}`.trim()}
             onClick={() => void actionConfig.onClick()}
             disabled={actionConfig.disabled}
           >
@@ -383,7 +432,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
           ) : null}
         </div>
 
-        {resolvedRound ? (
+        {showResultCard && resolvedRound ? (
           <div className={`space-result-card ${resolvedRound.won ? "success" : "failure"}`.trim()}>
             <div>
               <span>本轮结果</span>
