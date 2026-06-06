@@ -19,8 +19,8 @@ import { SpacePredictionPanel } from "./SpacePredictionPage";
 
 const maxAllowance = (2n ** 256n) - 1n;
 const recentLogWindow = 40_000n;
-const wagerMultipliers = [1, 2, 3];
-const maxWagerMultiplier = wagerMultipliers[wagerMultipliers.length - 1];
+const quickWagerMultipliers = [1, 5, 15];
+const maxWagerMultiplier = 15;
 
 const betSettledEvent = parseAbiItem(
   "event BetSettled(uint256 indexed betId, uint256 indexed requestId, bytes32 indexed gameId, address player, bool won, uint256 grossProfit, uint256 playerPayout, uint256 burnAmount, uint256 incomeAmount, uint256 referralAmount, bytes resultData)"
@@ -129,7 +129,7 @@ function getBoxTiers(t: (key: string) => string): BoxTier[] {
       label: t("play.tier.common.label"),
       teaser: t("play.tier.common.teaser"),
       icon: "□",
-      probabilityLabel: "35.00%",
+      probabilityLabel: "40.00%",
       grossMultiplierBps: 8_500,
       payoutMultiplierBps: 17_990,
       accentClass: "common",
@@ -140,7 +140,7 @@ function getBoxTiers(t: (key: string) => string): BoxTier[] {
       label: t("play.tier.empty.label"),
       teaser: t("play.tier.empty.teaser"),
       icon: "?",
-      probabilityLabel: "60.00%",
+      probabilityLabel: "55.00%",
       grossMultiplierBps: 0,
       payoutMultiplierBps: 0,
       accentClass: "empty",
@@ -154,6 +154,12 @@ function getTierByIndex(index: number, tiers: BoxTier[]) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizeWagerUnits(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return clamp(parsed, 1, maxWagerMultiplier);
 }
 
 function formatDisplayToken(value: bigint | undefined, numberLocale: string, fractionDigits = 2) {
@@ -244,8 +250,7 @@ export function PlayPage() {
   const spaceNavItems = getSpaceNavItems(t);
   const boxTiers = getBoxTiers(t);
 
-  const wagerValue = Number.parseFloat(wagerUnits);
-  const normalizedWager = Number.isFinite(wagerValue) && wagerValue > 0 ? clamp(Math.round(wagerValue), 1, maxWagerMultiplier) : 0;
+  const normalizedWager = normalizeWagerUnits(wagerUnits);
   const wagerPreview = normalizedWager > 0 ? parseEther(String(normalizedWager * 1000)) : undefined;
   const referrer = referralLanding.cachedReferrer as `0x${string}` | undefined;
   const actionLocked = tx.phase === "awaiting-signature" || tx.phase === "sending" || tx.phase === "confirming";
@@ -360,6 +365,15 @@ export function PlayPage() {
   const actionHint = hasReferrerConflict && boundReferrer
     ? t("play.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
+
+  function handleWagerInputChange(value: string) {
+    const digitsOnly = value.replace(/[^\d]/g, "").slice(0, 2);
+    setWagerUnits(digitsOnly);
+  }
+
+  function handleWagerInputBlur() {
+    setWagerUnits(String(normalizedWager || 1));
+  }
 
   const shareLink = typeof window !== "undefined" && access.activeAddress
     ? `${window.location.origin}/play?ref=${access.activeAddress}`
@@ -826,17 +840,36 @@ export function PlayPage() {
                   </div>
                 </div>
 
-                <div className="capsule-chip-row">
-                  {wagerMultipliers.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`capsule-chip ${normalizedWager === value ? "active" : ""}`.trim()}
-                      onClick={() => setWagerUnits(String(value))}
-                    >
-                      x{value}
-                    </button>
-                  ))}
+                <div className="wager-control-stack">
+                  <span className="wager-input-label">{t("common.quickPicks")}</span>
+                  <div className="capsule-chip-row">
+                    {quickWagerMultipliers.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`capsule-chip ${normalizedWager === value ? "active" : ""}`.trim()}
+                        onClick={() => setWagerUnits(String(value))}
+                      >
+                        x{value}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="wager-input-row">
+                    <span className="wager-input-label">{t("common.customMultiplier")}</span>
+                    <label className="wager-input-shell">
+                      <input
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={2}
+                        value={wagerUnits}
+                        onChange={(event) => handleWagerInputChange(event.target.value)}
+                        onBlur={handleWagerInputBlur}
+                        placeholder="1-15"
+                        aria-label={t("common.customMultiplier")}
+                      />
+                      <strong>{t("common.multiplierHint")}</strong>
+                    </label>
+                  </div>
                 </div>
                 <button
                   type="button"

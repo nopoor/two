@@ -17,8 +17,8 @@ import { shortAddress } from "../lib/format";
 import { coinFlipGameId } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
 const maxAllowance = (2n ** 256n) - 1n;
-const wagerMultipliers = [1, 2, 3];
-const maxWagerMultiplier = wagerMultipliers[wagerMultipliers.length - 1];
+const quickWagerMultipliers = [1, 5, 15];
+const maxWagerMultiplier = 15;
 
 const betSettledEvent = parseAbiItem(
   "event BetSettled(uint256 indexed betId, uint256 indexed requestId, bytes32 indexed gameId, address player, bool won, uint256 grossProfit, uint256 playerPayout, uint256 burnAmount, uint256 incomeAmount, uint256 referralAmount, bytes resultData)"
@@ -58,6 +58,12 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizeWagerUnits(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return clamp(parsed, 1, maxWagerMultiplier);
+}
+
 export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPanelProps) {
   const tx = useTxFlow();
   const sound = useSoundEffects();
@@ -76,8 +82,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const [refundedBetId, setRefundedBetId] = useState<bigint | undefined>();
   const [revealPhase, setRevealPhase] = useState<ResultRevealPhase>("idle");
 
-  const wagerValue = Number.parseFloat(wagerUnits);
-  const normalizedWager = Number.isFinite(wagerValue) && wagerValue > 0 ? clamp(Math.round(wagerValue), 1, maxWagerMultiplier) : 0;
+  const normalizedWager = normalizeWagerUnits(wagerUnits);
   const wagerPreview = normalizedWager > 0 ? parseEther(String(normalizedWager * 1000)) : undefined;
   const referrer = referralLanding.cachedReferrer as `0x${string}` | undefined;
   const actionLocked = tx.phase === "awaiting-signature" || tx.phase === "sending" || tx.phase === "confirming";
@@ -180,6 +185,15 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const actionHint = hasReferrerConflict && boundReferrer
     ? t("space.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
+
+  function handleWagerInputChange(value: string) {
+    const digitsOnly = value.replace(/[^\d]/g, "").slice(0, 2);
+    setWagerUnits(digitsOnly);
+  }
+
+  function handleWagerInputBlur() {
+    setWagerUnits(String(normalizedWager || 1));
+  }
 
   useEffect(() => {
     if (actionMode !== "bet" || tx.phase !== "success") return;
@@ -403,17 +417,36 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             </div>
           </div>
 
-          <div className="space-chip-row">
-            {wagerMultipliers.map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`space-chip ${normalizedWager === value ? "active" : ""}`.trim()}
-                onClick={() => setWagerUnits(String(value))}
-              >
-                x{value}
-              </button>
-            ))}
+          <div className="wager-control-stack">
+            <span className="wager-input-label">{t("common.quickPicks")}</span>
+            <div className="space-chip-row">
+              {quickWagerMultipliers.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`space-chip ${normalizedWager === value ? "active" : ""}`.trim()}
+                  onClick={() => setWagerUnits(String(value))}
+                >
+                  x{value}
+                </button>
+              ))}
+            </div>
+            <div className="wager-input-row">
+              <span className="wager-input-label">{t("common.customMultiplier")}</span>
+              <label className="wager-input-shell">
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={2}
+                  value={wagerUnits}
+                  onChange={(event) => handleWagerInputChange(event.target.value)}
+                  onBlur={handleWagerInputBlur}
+                  placeholder="1-15"
+                  aria-label={t("common.customMultiplier")}
+                />
+                <strong>{t("common.multiplierHint")}</strong>
+              </label>
+            </div>
           </div>
 
           <button

@@ -22,7 +22,7 @@ contract GameManager is AccessControlled, ReentrancyGuard {
     error InvalidRandomWords(uint256 requestId);
 
     uint256 public constant BASE_WAGER = 1_000 ether;
-    uint256 public constant MAX_WAGER_MULTIPLIER = 3;
+    uint256 public constant MAX_WAGER_MULTIPLIER = 15;
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant BURN_BPS = 200;
     uint256 public constant INCOME_BPS = 380;

@@ -20,7 +20,7 @@ contract MysteryBoxModule is IGameModule {
     uint16 internal constant LEGENDARY_CUTOFF = 4;
     uint16 internal constant EPIC_CUTOFF = 84;
     uint16 internal constant RARE_CUTOFF = 500;
-    uint16 internal constant COMMON_CUTOFF = 4_000;
+    uint16 internal constant COMMON_CUTOFF = 4_500;
 
     uint32 internal constant LEGENDARY_GROSS_MULTIPLIER_BPS = 500_000;
     uint32 internal constant EPIC_GROSS_MULTIPLIER_BPS = 150_000;

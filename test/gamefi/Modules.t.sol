@@ -52,4 +52,26 @@ contract ModulesTest is Test {
         assertEq(outcome, 7_777);
         assertEq(grossMultiplierBps, 0);
     }
+
+    function testMysteryBoxResolveCommonAtNewUpperBand() external view {
+        (bool won, uint256 grossProfit, bytes memory resultData) = mysteryBox.resolveBet(1_000 ether, bytes(""), 4_499);
+        (uint8 tierId, uint16 outcome, uint32 grossMultiplierBps) = abi.decode(resultData, (uint8, uint16, uint32));
+
+        assertTrue(won);
+        assertEq(grossProfit, 850 ether);
+        assertEq(tierId, 3);
+        assertEq(outcome, 4_499);
+        assertEq(grossMultiplierBps, 8_500);
+    }
+
+    function testMysteryBoxResolveEmptyStartsAtNewThreshold() external view {
+        (bool won, uint256 grossProfit, bytes memory resultData) = mysteryBox.resolveBet(1_000 ether, bytes(""), 4_500);
+        (uint8 tierId, uint16 outcome, uint32 grossMultiplierBps) = abi.decode(resultData, (uint8, uint16, uint32));
+
+        assertFalse(won);
+        assertEq(grossProfit, 0);
+        assertEq(tierId, 4);
+        assertEq(outcome, 4_500);
+        assertEq(grossMultiplierBps, 0);
+    }
 }

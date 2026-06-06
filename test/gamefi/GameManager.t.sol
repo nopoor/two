@@ -137,9 +137,10 @@ contract GameManagerTest is Test {
             address betReferrer,
             uint96 wager,
             uint96 maxProfit,
-            ,
+            uint40 placedAt,
             uint64 requestId,
             GameManager.BetStatus status,
+            bytes memory gameData
         ) = gameManager.pendingBets(betId);
 
         assertEq(betPlayer, player);
@@ -147,8 +148,10 @@ contract GameManagerTest is Test {
         assertEq(betReferrer, referrer);
         assertEq(uint256(wager), 1_000 ether);
         assertEq(uint256(maxProfit), 1_000 ether);
+        assertEq(uint256(placedAt), block.timestamp);
         assertEq(requestId, 1);
         assertEq(uint256(status), uint256(GameManager.BetStatus.Pending));
+        assertEq(gameData, abi.encode(true));
     }
 
     function testRejectSecondPendingBet() external {
@@ -161,8 +164,37 @@ contract GameManagerTest is Test {
 
     function testRejectWagerAboveMaxMultiplier() external {
         vm.prank(player);
-        vm.expectRevert(abi.encodeWithSelector(GameManager.InvalidWager.selector, 4_000 ether));
-        gameManager.placeBet(COIN_FLIP_GAME_ID, 4_000 ether, referrer, abi.encode(true));
+        vm.expectRevert(abi.encodeWithSelector(GameManager.InvalidWager.selector, 16_000 ether));
+        gameManager.placeBet(COIN_FLIP_GAME_ID, 16_000 ether, referrer, abi.encode(true));
+    }
+
+    function testAllowWagerAtMaxMultiplier() external {
+        flap.mint(player, 10_000 ether);
+
+        vm.prank(player);
+        uint256 betId = gameManager.placeBet(COIN_FLIP_GAME_ID, 15_000 ether, referrer, abi.encode(true));
+
+        (
+            address betPlayer,
+            bytes32 gameId,
+            address betReferrer,
+            uint96 wager,
+            uint96 maxProfit,
+            uint40 placedAt,
+            uint64 requestId,
+            GameManager.BetStatus status,
+            bytes memory gameData
+        ) = gameManager.pendingBets(betId);
+
+        assertEq(betPlayer, player);
+        assertEq(gameId, COIN_FLIP_GAME_ID);
+        assertEq(betReferrer, referrer);
+        assertEq(uint256(wager), 15_000 ether);
+        assertEq(uint256(maxProfit), 15_000 ether);
+        assertEq(uint256(placedAt), block.timestamp);
+        assertEq(requestId, 1);
+        assertEq(uint256(status), uint256(GameManager.BetStatus.Pending));
+        assertEq(gameData, abi.encode(true));
     }
 
     function testRejectReferrerMismatchAfterBinding() external {

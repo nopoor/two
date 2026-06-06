@@ -424,6 +424,57 @@
   margin-bottom: 12px;
 }
 
+.wager-control-stack {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wager-input-row {
+  display: grid;
+  gap: 8px;
+}
+
+.wager-input-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.54);
+}
+
+.wager-input-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.wager-input-shell input {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.wager-input-shell input:focus {
+  outline: none;
+}
+
+.wager-input-shell strong {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(191, 219, 254, 0.68);
+}
+
 .capsule-chip-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
