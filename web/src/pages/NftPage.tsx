@@ -5,9 +5,11 @@ import { erc721EnumerableAbi } from "../abi/common";
 import { contracts } from "../config/contracts";
 import { bscChain } from "../config/chains";
 import { useDappAccess } from "../hooks/useDappAccess";
+import { useI18n } from "../i18n/LanguageProvider";
 
 export function NftPage() {
   const access = useDappAccess();
+  const { t } = useI18n();
   const [copiedAddress, setCopiedAddress] = useState(false);
   const nftAddress = contracts.dividendBankNft;
   const elementCollectionUrl = import.meta.env.VITE_ELEMENT_NFT_URL;
@@ -51,45 +53,45 @@ export function NftPage() {
   return (
     <div className="vault-page-stack">
       <div className="hero-contract-card nft-contract-card">
-        <div className="contract-ribbon">NFT 權益</div>
-        <p className="hero-contract-label">NFT CONTRACT</p>
+        <div className="contract-ribbon">{t("nft.ribbon")}</div>
+        <p className="hero-contract-label">{t("nft.contractLabel")}</p>
         <div className="contract-address-box">
-          <span className="contract-address-full">{nftAddress || "待配置"}</span>
+          <span className="contract-address-full">{nftAddress || t("common.pendingConfig")}</span>
           <span className="contract-address-compact">
-            {nftAddress ? `${nftAddress.slice(0, 16)}...${nftAddress.slice(-12)}` : "待配置"}
+            {nftAddress ? `${nftAddress.slice(0, 16)}...${nftAddress.slice(-12)}` : t("common.pendingConfig")}
           </span>
           <button type="button" className="icon-button" onClick={() => void copyAddress()} disabled={!nftAddress}>
-            {copiedAddress ? "已複製" : "複製"}
+            {copiedAddress ? t("common.copied") : t("common.copy")}
           </button>
         </div>
         <div className="hero-contract-meta">
           <div>
-            <span>最大供應</span>
+            <span>{t("nft.maxSupply")}</span>
             <strong>420</strong>
           </div>
         </div>
         {hasElementCollectionUrl ? (
           <a href={elementCollectionUrl} target="_blank" rel="noreferrer" className="hero-link-button">
-            前往 Element 購買
+            {t("nft.buyOnElement")}
           </a>
         ) : (
           <button type="button" className="hero-link-button nft-market-button-disabled" disabled>
-            Element 購買入口待開放
+            {t("nft.marketSoon")}
           </button>
         )}
       </div>
 
-      <SectionCard title="NFT 編號" description={access.isConnected ? undefined : "連接後查看。"} className="nft-index-card">
+      <SectionCard title={t("nft.tokenIds")} description={access.isConnected ? undefined : t("common.connectToView")} className="nft-index-card">
         <div className="token-showcase-grid">
           {ownedTokens.data?.length ? (
             ownedTokens.data.map((item, index) => (
               <div key={index} className="token-chip-card">
-                <span>分紅銀行 NFT</span>
+                <span>{t("nft.cardLabel")}</span>
                 <strong>#{item.result?.toString() || "--"}</strong>
               </div>
             ))
           ) : (
-            <div className="empty-state">{access.activeAddress ? "目前沒有持有中的 NFT" : "連接錢包後查看持有清單"}</div>
+            <div className="empty-state">{access.activeAddress ? t("nft.noHoldings") : t("nft.connectToViewList")}</div>
           )}
         </div>
       </SectionCard>

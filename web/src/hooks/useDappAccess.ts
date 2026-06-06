@@ -4,6 +4,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { isAddress } from "viem";
 import { useAccount, useAccountEffect, useChainId, useDisconnect, useSwitchChain } from "wagmi";
 import { bscChain } from "../config/chains";
+import { useI18n } from "../i18n/LanguageProvider";
 
 type WriteState = "connect" | "switch" | "observer" | "ready";
 
@@ -46,6 +47,7 @@ async function addBscToInjectedWallet() {
 }
 
 export function useDappAccess(options: Options = {}) {
+  const { t } = useI18n();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
@@ -150,8 +152,8 @@ export function useDappAccess(options: Options = {}) {
   function getActionConfig(readyLabel: string, readyHint: string) {
     if (writeState === "connect") {
       return {
-        label: "Connect Wallet",
-        hint: "連接錢包後即可執行鏈上操作。",
+        label: t("access.connectLabel"),
+        hint: t("access.connectHint"),
         variant: "secondary" as const,
         disabled: false,
         onClick: requestConnect,
@@ -160,8 +162,8 @@ export function useDappAccess(options: Options = {}) {
 
     if (writeState === "switch") {
       return {
-        label: `Switch to ${bscChain.name}`,
-        hint: `切换至 ${bscChain.name} 后即可启用交易功能。`,
+        label: t("access.switchLabel", { chainName: bscChain.name }),
+        hint: t("access.switchHint", { chainName: bscChain.name }),
         variant: "warning" as const,
         disabled: isSwitchingChain || isAddingBscChain,
         onClick: requestSwitch,
@@ -170,8 +172,8 @@ export function useDappAccess(options: Options = {}) {
 
     if (writeState === "observer") {
       return {
-        label: "Observer Mode",
-        hint: "觀察者模式下僅可查看資料，不可發送簽名交易。",
+        label: t("access.observerLabel"),
+        hint: t("access.observerHint"),
         variant: "ghost" as const,
         disabled: true,
         onClick: async () => undefined,

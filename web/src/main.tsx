@@ -9,6 +9,7 @@ import { App } from "./App";
 import { wagmiConfig } from "./config/wallet";
 import { bscChain } from "./config/chains";
 import { SoundEffectsProvider } from "./hooks/useSoundEffects";
+import { LanguageProvider } from "./i18n/LanguageProvider";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -19,9 +20,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider modalSize="compact" initialChain={bscChain}>
           <SoundEffectsProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
+            <LanguageProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </LanguageProvider>
           </SoundEffectsProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

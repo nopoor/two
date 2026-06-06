@@ -11,15 +11,14 @@ import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useReferralLanding } from "../hooks/useReferralLanding";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { useTxFlow } from "../hooks/useTxFlow";
+import { useI18n } from "../i18n/LanguageProvider";
 import { formatToken, shortAddress } from "../lib/format";
 import { coinFlipGameId, mysteryBoxGameId, type PublicGameMode } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
+
 const maxAllowance = (2n ** 256n) - 1n;
 const recentLogWindow = 40_000n;
-const tokenDisplayName = "分红银行";
-const mysteryBoxShareTitle = "分红银行 · 神秘盲盒";
-const livePoolLabel = "分红银行 · LIVE";
 const wagerMultipliers = [1, 2, 3];
 const maxWagerMultiplier = wagerMultipliers[wagerMultipliers.length - 1];
 
@@ -28,19 +27,6 @@ const betSettledEvent = parseAbiItem(
 );
 
 type PlayTab = "open" | "live" | "odds" | "me" | "space" | "spaceHistory" | "spaceMe";
-
-const boxNavItems = [
-  { key: "open", label: "开盒", icon: "◆" },
-  { key: "live", label: "动态", icon: "▤" },
-  { key: "odds", label: "概率", icon: "ⓘ" },
-  { key: "me", label: "我的", icon: "◉" },
-] satisfies Array<{ key: PlayTab; label: string; icon: string }>;
-
-const spaceNavItems = [
-  { key: "space", label: "飞船", icon: "▲" },
-  { key: "spaceHistory", label: "记录", icon: "▤" },
-  { key: "spaceMe", label: "我的", icon: "◉" },
-] satisfies Array<{ key: PlayTab; label: string; icon: string }>;
 
 type BoxTier = {
   index: number;
@@ -85,82 +71,101 @@ type SpaceFeedItem = {
   landedUp: boolean;
 };
 
-const boxTiers: BoxTier[] = [
-  {
-    index: 0,
-    id: "legendary",
-    label: "传说",
-    teaser: "黄金爆闪 · 稀有极奖",
-    icon: "✦",
-    probabilityLabel: "0.04%",
-    grossMultiplierBps: 500_000,
-    payoutMultiplierBps: 480_000,
-    accentClass: "legendary",
-  },
-  {
-    index: 1,
-    id: "epic",
-    label: "史诗",
-    teaser: "紫焰开启 · 深空大奖",
-    icon: "◆",
-    probabilityLabel: "0.80%",
-    grossMultiplierBps: 150_000,
-    payoutMultiplierBps: 151_000,
-    accentClass: "epic",
-  },
-  {
-    index: 2,
-    id: "rare",
-    label: "稀有",
-    teaser: "青色霓虹 · 高倍返奖",
-    icon: "◈",
-    probabilityLabel: "4.16%",
-    grossMultiplierBps: 40_000,
-    payoutMultiplierBps: 47_600,
-    accentClass: "rare",
-  },
-  {
-    index: 3,
-    id: "common",
-    label: "普通",
-    teaser: "稳定出货 · 常规回血",
-    icon: "□",
-    probabilityLabel: "35.00%",
-    grossMultiplierBps: 8_500,
-    payoutMultiplierBps: 17_990,
-    accentClass: "common",
-  },
-  {
-    index: 4,
-    id: "empty",
-    label: "未发现",
-    teaser: "本轮落空 · 继续尝试",
-    icon: "?",
-    probabilityLabel: "60.00%",
-    grossMultiplierBps: 0,
-    payoutMultiplierBps: 0,
-    accentClass: "empty",
-  },
-];
+function getBoxNavItems(t: (key: string) => string) {
+  return [
+    { key: "open", label: t("play.tab.open"), icon: "◆" },
+    { key: "live", label: t("play.tab.live"), icon: "▤" },
+    { key: "odds", label: t("play.tab.odds"), icon: "ⓘ" },
+    { key: "me", label: t("play.tab.me"), icon: "◉" },
+  ] satisfies Array<{ key: PlayTab; label: string; icon: string }>;
+}
 
-function getTierByIndex(index: number) {
-  return boxTiers.find((tier) => tier.index === index) ?? boxTiers[boxTiers.length - 1];
+function getSpaceNavItems(t: (key: string) => string) {
+  return [
+    { key: "space", label: t("play.tab.space"), icon: "▲" },
+    { key: "spaceHistory", label: t("play.tab.spaceHistory"), icon: "▤" },
+    { key: "spaceMe", label: t("play.tab.spaceMe"), icon: "◉" },
+  ] satisfies Array<{ key: PlayTab; label: string; icon: string }>;
+}
+
+function getBoxTiers(t: (key: string) => string): BoxTier[] {
+  return [
+    {
+      index: 0,
+      id: "legendary",
+      label: t("play.tier.legendary.label"),
+      teaser: t("play.tier.legendary.teaser"),
+      icon: "✦",
+      probabilityLabel: "0.04%",
+      grossMultiplierBps: 500_000,
+      payoutMultiplierBps: 480_000,
+      accentClass: "legendary",
+    },
+    {
+      index: 1,
+      id: "epic",
+      label: t("play.tier.epic.label"),
+      teaser: t("play.tier.epic.teaser"),
+      icon: "◆",
+      probabilityLabel: "0.80%",
+      grossMultiplierBps: 150_000,
+      payoutMultiplierBps: 151_000,
+      accentClass: "epic",
+    },
+    {
+      index: 2,
+      id: "rare",
+      label: t("play.tier.rare.label"),
+      teaser: t("play.tier.rare.teaser"),
+      icon: "◈",
+      probabilityLabel: "4.16%",
+      grossMultiplierBps: 40_000,
+      payoutMultiplierBps: 47_600,
+      accentClass: "rare",
+    },
+    {
+      index: 3,
+      id: "common",
+      label: t("play.tier.common.label"),
+      teaser: t("play.tier.common.teaser"),
+      icon: "□",
+      probabilityLabel: "35.00%",
+      grossMultiplierBps: 8_500,
+      payoutMultiplierBps: 17_990,
+      accentClass: "common",
+    },
+    {
+      index: 4,
+      id: "empty",
+      label: t("play.tier.empty.label"),
+      teaser: t("play.tier.empty.teaser"),
+      icon: "?",
+      probabilityLabel: "60.00%",
+      grossMultiplierBps: 0,
+      payoutMultiplierBps: 0,
+      accentClass: "empty",
+    },
+  ];
+}
+
+function getTierByIndex(index: number, tiers: BoxTier[]) {
+  return tiers.find((tier) => tier.index === index) ?? tiers[tiers.length - 1];
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function formatDisplayToken(value?: bigint, fractionDigits = 2) {
+function formatDisplayToken(value: bigint | undefined, numberLocale: string, fractionDigits = 2) {
   if (value === undefined) return "--";
-  return Number(formatEther(value)).toLocaleString("zh-CN", {
+  return Number(formatEther(value)).toLocaleString(numberLocale, {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
 }
 
-function formatBankrollUnits(units: number) {
-  return (units * 1000).toLocaleString("zh-CN", {
+function formatBankrollUnits(units: number, numberLocale: string) {
+  return (units * 1000).toLocaleString(numberLocale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
@@ -191,7 +196,7 @@ function prependUnique(items: DiscoveryFeedItem[], nextItem: DiscoveryFeedItem, 
   return deduped.slice(0, limit);
 }
 
-function decodeMysteryBoxResult(resultData: `0x${string}`) {
+function decodeMysteryBoxResult(resultData: `0x${string}`, tiers: BoxTier[]) {
   const [tierIndex, outcome, grossMultiplierBps] = decodeAbiParameters(
     [
       { name: "tierId", type: "uint8" },
@@ -202,7 +207,7 @@ function decodeMysteryBoxResult(resultData: `0x${string}`) {
   );
 
   return {
-    tier: getTierByIndex(Number(tierIndex)),
+    tier: getTierByIndex(Number(tierIndex), tiers),
     outcome: Number(outcome),
     grossMultiplierBps: Number(grossMultiplierBps),
   };
@@ -212,6 +217,7 @@ export function PlayPage() {
   const tx = useTxFlow();
   const sound = useSoundEffects();
   const access = useDappAccess();
+  const { numberLocale, t } = useI18n();
   const gameAvailability = useGameAvailability();
   const referralLanding = useReferralLanding(access.address);
   const publicClient = usePublicClient({ chainId: bscChain.id });
@@ -231,11 +237,17 @@ export function PlayPage() {
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [refundedBetId, setRefundedBetId] = useState<bigint | undefined>();
 
+  const tokenDisplayName = t("common.tokenName");
+  const mysteryBoxShareTitle = t("play.shareTitle");
+  const livePoolLabel = t("play.livePoolLabel");
+  const boxNavItems = getBoxNavItems(t);
+  const spaceNavItems = getSpaceNavItems(t);
+  const boxTiers = getBoxTiers(t);
+
   const wagerValue = Number.parseFloat(wagerUnits);
   const normalizedWager = Number.isFinite(wagerValue) && wagerValue > 0 ? clamp(Math.round(wagerValue), 1, maxWagerMultiplier) : 0;
   const wagerPreview = normalizedWager > 0 ? parseEther(String(normalizedWager * 1000)) : undefined;
   const referrer = referralLanding.cachedReferrer as `0x${string}` | undefined;
-  const pendingExists = Boolean(trackedBetId !== undefined || (access.activeAddress && resolvedRound === undefined && tx.phase === "success"));
   const actionLocked = tx.phase === "awaiting-signature" || tx.phase === "sending" || tx.phase === "confirming";
 
   const allowance = useReadContract({
@@ -301,8 +313,8 @@ export function PlayPage() {
   const referrerLabel = boundReferrer
     ? shortAddress(boundReferrer)
     : referrer
-      ? `待下注绑定 ${shortAddress(referrer)}`
-      : "无";
+      ? t("play.referrerPending", { referrer: shortAddress(referrer) })
+      : t("play.none");
   const isBoxEnabled = gameAvailability.games.box.enabled;
   const isSpaceEnabled = gameAvailability.games.space.enabled;
   const writeDisabled = actionLocked || normalizedWager === 0 || hasPendingBet || trackedBetId !== undefined;
@@ -317,22 +329,22 @@ export function PlayPage() {
       || (trackedBetId !== undefined && resolvedRound === undefined));
 
   const jackpotPayout = wagerPreview ? (wagerPreview * BigInt(boxTiers[0].payoutMultiplierBps)) / 10_000n : 0n;
-  const baseAction = access.getActionConfig("OPEN CAPSULE", "完成授权后即可发起本轮开盒。");
+  const baseAction = access.getActionConfig(t("play.openBoxLabel"), t("play.openBoxHint"));
   const actionConfig =
     access.writeState === "ready" && needsApproval
       ? {
-          label: "授权分红银行代币",
-          hint: "首次开启前，需要先授权金库扣取本轮开盒资金。",
+          label: t("play.approveLabel"),
+          hint: t("play.approveHint"),
           disabled: writeDisabled,
           onClick: approveToken,
         }
       : access.writeState === "ready"
         ? {
-            label: "开启神秘宝箱",
-            hint: "本次开启会发起一笔链上下注，并等待 VRF 揭晓结果。",
-              disabled: writeDisabled,
-              onClick: placeBet,
-            }
+            label: t("play.openBoxLabel"),
+            hint: t("play.openBoxHint"),
+            disabled: writeDisabled,
+            onClick: placeBet,
+          }
         : {
             label: baseAction.label,
             hint: baseAction.hint,
@@ -341,12 +353,12 @@ export function PlayPage() {
           };
 
   const stageCaption = isResolvingRound
-    ? "封印解除中 · VRF 正在返回结果"
+    ? t("play.stageResolving")
     : resolvedRound
       ? `${resolvedRound.tier.label} · ${resolvedRound.tier.teaser}`
-      : "开启神秘宝箱 · 发现你的等级";
+      : t("play.stageDefault");
   const actionHint = hasReferrerConflict && boundReferrer
-    ? `检测到历史邀请缓存，当前下注将按已绑定邀请人 ${shortAddress(boundReferrer)} 结算。`
+    ? t("play.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
 
   const shareLink = typeof window !== "undefined" && access.activeAddress
@@ -450,7 +462,7 @@ export function PlayPage() {
           return;
         }
 
-        const decoded = decodeMysteryBoxResult(latestLog.args.resultData);
+        const decoded = decodeMysteryBoxResult(latestLog.args.resultData, boxTiers);
         setResolvedRound({
           betId: trackedBetId,
           player: latestLog.args.player,
@@ -478,7 +490,7 @@ export function PlayPage() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [publicClient, resolvedRound, trackedBetId, trackedFromBlock]);
+  }, [boxTiers, publicClient, resolvedRound, trackedBetId, trackedFromBlock]);
 
   useEffect(() => {
     if (!resolvedRound || lastResolvedBetRef.current === resolvedRound.betId) return;
@@ -536,7 +548,7 @@ export function PlayPage() {
               return [];
             }
 
-            const decoded = decodeMysteryBoxResult(log.args.resultData);
+            const decoded = decodeMysteryBoxResult(log.args.resultData, boxTiers);
             return [{
               key: log.args.betId!.toString(),
               betId: log.args.betId!,
@@ -563,7 +575,7 @@ export function PlayPage() {
     return () => {
       cancelled = true;
     };
-  }, [access.activeAddress, publicClient]);
+  }, [access.activeAddress, boxTiers, publicClient]);
 
   useEffect(() => {
     if (!publicClient || !contracts.gameManager) return;
@@ -631,7 +643,7 @@ export function PlayPage() {
 
   async function approveToken() {
     if (!contracts.flapToken || !contracts.bankrollVault) {
-      tx.setError("合约地址未配置完成");
+      tx.setError(t("play.contractMissing"));
       return;
     }
 
@@ -649,13 +661,13 @@ export function PlayPage() {
 
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "授权失败");
+      tx.setError(error instanceof Error ? error.message : t("play.approveFailed"));
     }
   }
 
   async function placeBet() {
     if (!contracts.gameManager || !wagerPreview) {
-      tx.setError("下注参数未准备完成");
+      tx.setError(t("play.betParamsMissing"));
       return;
     }
 
@@ -678,7 +690,7 @@ export function PlayPage() {
 
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "开盒失败");
+      tx.setError(error instanceof Error ? error.message : t("play.openFailed"));
     }
   }
 
@@ -694,7 +706,7 @@ export function PlayPage() {
     if (typeof navigator !== "undefined" && navigator.share) {
       await navigator.share({
         title: mysteryBoxShareTitle,
-        text: "用我的邀请链接一起开盒，链上开奖直接同步。",
+        text: t("play.shareText"),
         url: shareLink,
       });
       return;
@@ -704,14 +716,14 @@ export function PlayPage() {
   }
 
   if (gameAvailability.isLoading) {
-    return <div className="section-card compact">读取游戏上线状态中</div>;
+    return <div className="section-card compact">{t("play.gamesLoading")}</div>;
   }
 
   if (gameAvailability.hasNoEnabledGames) {
     return (
       <div className="section-card compact">
-        <strong>游戏暂未开放</strong>
-        <p>当前没有可用玩法，请等待 owner 钱包在后台开启游戏。</p>
+        <strong>{t("play.gamesClosedTitle")}</strong>
+        <p>{t("play.gamesClosedDesc")}</p>
       </div>
     );
   }
@@ -722,11 +734,11 @@ export function PlayPage() {
         <div className="capsule-stage-frame">
           <div className="capsule-pool-card">
             <div className="capsule-pool-head">
-              <span>奖励池</span>
+              <span>{t("play.rewardPool")}</span>
               <span>{livePoolLabel}</span>
             </div>
-            <strong>{rewardPool.data ? `${formatDisplayToken(rewardPool.data)} ${tokenDisplayName}` : "---"}</strong>
-            <p>金库余额越厚，极奖越有气势。</p>
+            <strong>{rewardPool.data ? `${formatDisplayToken(rewardPool.data, numberLocale)} ${tokenDisplayName}` : "---"}</strong>
+            <p>{t("play.rewardPoolDesc")}</p>
           </div>
 
           <div className="capsule-feed-strip">
@@ -734,16 +746,20 @@ export function PlayPage() {
             <div className="capsule-feed-copy">
               {activeMode === "box"
                 ? recentDiscoveries.length > 0
-                  ? `最近发现 · ${recentDiscoveries[0].tier.label} · ${shortAddress(recentDiscoveries[0].player)}`
-                  : "最近发现 · 等待第一位开盒玩家"
+                  ? t("play.feedRecentDiscovery", { tier: recentDiscoveries[0].tier.label, player: shortAddress(recentDiscoveries[0].player) })
+                  : t("play.feedRecentDiscoveryWait")
                 : spaceDiscoveries.length > 0
-                  ? `飞船航迹 · ${spaceDiscoveries[0].landedUp ? "UP" : "DOWN"} · ${shortAddress(spaceDiscoveries[0].player)}`
-                  : "飞船航迹 · 等待第一位飞行玩家"}
+                  ? t("play.feedSpaceTrail", {
+                      direction: spaceDiscoveries[0].landedUp ? t("common.up") : t("common.down"),
+                      player: shortAddress(spaceDiscoveries[0].player),
+                    })
+                  : t("play.feedSpaceTrailWait")}
             </div>
             <button type="button" className="capsule-feed-button" onClick={() => setActiveTab(activeMode === "box" ? "live" : "spaceHistory")}>
-              {activeMode === "box" ? "LIVE" : "记录"}
+              {activeMode === "box" ? t("common.live") : t("common.record")}
             </button>
           </div>
+
           <div className="play-mode-switch">
             {isSpaceEnabled ? (
               <button
@@ -754,7 +770,7 @@ export function PlayPage() {
                   setActiveTab("space");
                 }}
               >
-                <strong>飞船模式</strong>
+                <strong>{t("game.mode.space")}</strong>
               </button>
             ) : null}
             {isBoxEnabled ? (
@@ -766,7 +782,7 @@ export function PlayPage() {
                   setActiveTab("open");
                 }}
               >
-                <strong>盲盒模式</strong>
+                <strong>{t("game.mode.box")}</strong>
               </button>
             ) : null}
           </div>
@@ -778,7 +794,7 @@ export function PlayPage() {
                   <div className="capsule-machine-glow" />
                   <div className="capsule-machine-core">
                     <div className="capsule-machine-lid">
-                      <span>◆ SEAL ◆</span>
+                      <span>{t("play.modeSeal")}</span>
                     </div>
                     <div className="capsule-machine-window">
                       <span>{resolvedRound ? resolvedRound.tier.icon : "?"}</span>
@@ -793,7 +809,7 @@ export function PlayPage() {
                 </div>
 
                 <div className="capsule-machine-caption">
-                  <strong>{resolvedRound ? resolvedRound.tier.label : "等待开启"}</strong>
+                  <strong>{resolvedRound ? resolvedRound.tier.label : t("play.waitingOpen")}</strong>
                   <span>{stageCaption}</span>
                 </div>
               </div>
@@ -801,12 +817,12 @@ export function PlayPage() {
               <div className="capsule-control-panel">
                 <div className="capsule-control-head">
                   <div>
-                    <span>本次开盒</span>
-                    <strong>{formatBankrollUnits(normalizedWager || 1)} {tokenDisplayName}</strong>
+                    <span>{t("play.currentBox")}</span>
+                    <strong>{formatBankrollUnits(normalizedWager || 1, numberLocale)} {tokenDisplayName}</strong>
                   </div>
                   <div>
-                    <span>理论极奖</span>
-                    <strong>{wagerPreview ? `${formatDisplayToken(jackpotPayout)} ${tokenDisplayName}` : "--"}</strong>
+                    <span>{t("play.jackpot")}</span>
+                    <strong>{wagerPreview ? `${formatDisplayToken(jackpotPayout, numberLocale)} ${tokenDisplayName}` : "--"}</strong>
                   </div>
                 </div>
 
@@ -835,8 +851,8 @@ export function PlayPage() {
                 <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
                 {refundedBetId !== undefined ? (
                   <div className="status-banner status-banner-warning">
-                    <strong>本轮已退款</strong>
-                    <span>注单 #{refundedBetId.toString()} 未完成开奖，运营已原路退回本轮投入。</span>
+                    <strong>{t("common.roundRefunded")}</strong>
+                    <span>{t("play.roundRefundedDetail", { betId: refundedBetId.toString() })}</span>
                   </div>
                 ) : null}
               </div>
@@ -844,30 +860,29 @@ export function PlayPage() {
               {resolvedRound ? (
                 <div className={`capsule-result-card ${resolvedRound.tier.accentClass}`.trim()}>
                   <div className="capsule-result-head">
-                    <span>本轮结果</span>
+                    <span>{t("play.currentRound")}</span>
                     <strong>{resolvedRound.tier.label}</strong>
                   </div>
                   <div className="capsule-result-grid">
                     <div>
-                      <span>开奖编号</span>
+                      <span>{t("play.drawId")}</span>
                       <strong>#{resolvedRound.betId.toString()}</strong>
                     </div>
                     <div>
-                      <span>随机命中</span>
+                      <span>{t("play.randomHit")}</span>
                       <strong>{formatOutcome(resolvedRound.outcome)}</strong>
                     </div>
                     <div>
-                      <span>返奖倍率</span>
+                      <span>{t("play.multiplier")}</span>
                       <strong>{formatMultiplier(resolvedRound.tier.payoutMultiplierBps)}</strong>
                     </div>
                     <div>
-                      <span>到账金额</span>
-                      <strong>{resolvedRound.won ? `${formatDisplayToken(resolvedRound.playerPayout)} ${tokenDisplayName}` : `0 ${tokenDisplayName}`}</strong>
+                      <span>{t("common.payout")}</span>
+                      <strong>{resolvedRound.won ? `${formatDisplayToken(resolvedRound.playerPayout, numberLocale)} ${tokenDisplayName}` : `0 ${tokenDisplayName}`}</strong>
                     </div>
                   </div>
                 </div>
               ) : null}
-
             </>
           ) : (
             <div className="inline-space-panel">
@@ -896,12 +911,12 @@ export function PlayPage() {
               <div className="capsule-sheet-head">
                 <strong>
                   {activeTab === "live"
-                    ? "开奖动态"
+                    ? t("play.sheet.live")
                     : activeTab === "odds"
-                      ? "概率 · ODDS"
+                      ? t("play.sheet.odds")
                       : activeTab === "spaceHistory"
-                        ? "飞船记录"
-                        : "我的中心"}
+                        ? t("play.sheet.spaceHistory")
+                        : t("play.sheet.me")}
                 </strong>
                 <button type="button" onClick={() => setActiveTab(primaryTab)}>
                   ✕
@@ -918,12 +933,12 @@ export function PlayPage() {
                           <strong>{shortAddress(item.player)}</strong>
                         </div>
                         <div>
-                          <span>开奖 {formatOutcome(item.outcome)}</span>
-                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout)} ${tokenDisplayName}` : "未命中"}</strong>
+                          <span>{`${t("play.drawId")} ${formatOutcome(item.outcome)}`}</span>
+                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout, numberLocale)} ${tokenDisplayName}` : t("play.miss")}</strong>
                         </div>
                       </div>
                     )) : (
-                      <div className="capsule-empty-state">还没有链上开奖记录，等你打第一枪。</div>
+                      <div className="capsule-empty-state">{t("play.liveEmpty")}</div>
                     )}
                   </div>
                 ) : null}
@@ -931,7 +946,7 @@ export function PlayPage() {
                 {activeTab === "odds" ? (
                   <div className="capsule-odds-list">
                     {boxTiers.map((tier) => (
-                    <div key={tier.id} className={`capsule-odds-card ${tier.accentClass}`.trim()}>
+                      <div key={tier.id} className={`capsule-odds-card ${tier.accentClass}`.trim()}>
                         <div>
                           <span>{tier.label}</span>
                           <strong>{tier.id === "empty" ? "—" : formatMultiplier(tier.payoutMultiplierBps)}</strong>
@@ -951,15 +966,15 @@ export function PlayPage() {
                       <div key={item.key} className={`capsule-feed-card ${item.won ? "success" : "failure"}`.trim()}>
                         <div>
                           <span>{shortAddress(item.player)}</span>
-                          <strong>{item.guessUp ? "看涨飞升" : "看跌坠落"}</strong>
+                          <strong>{item.guessUp ? t("space.guessUp") : t("space.guessDown")}</strong>
                         </div>
                         <div>
-                          <span>结果 {item.landedUp ? "UP" : "DOWN"}</span>
-                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout)} ${tokenDisplayName}` : "未命中"}</strong>
+                          <span>{`${t("common.roundResult")} ${item.landedUp ? t("common.up") : t("common.down")}`}</span>
+                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout, numberLocale)} ${tokenDisplayName}` : t("play.miss")}</strong>
                         </div>
                       </div>
                     )) : (
-                      <div className="capsule-empty-state">还没有飞船开奖记录，等待第一位玩家起飞。</div>
+                      <div className="capsule-empty-state">{t("play.spaceEmpty")}</div>
                     )}
                   </div>
                 ) : null}
@@ -967,33 +982,33 @@ export function PlayPage() {
                 {activeTab === "me" ? (
                   <div className="capsule-me-panel">
                     <div className="capsule-wallet-card">
-                      <span>当前钱包</span>
-                      <strong>{access.activeAddress ? shortAddress(access.activeAddress) : "未连接"}</strong>
+                      <span>{t("common.currentWallet")}</span>
+                      <strong>{access.activeAddress ? shortAddress(access.activeAddress) : t("common.connectWalletShort")}</strong>
                       <div className="capsule-wallet-balance">
-                        <span>分红银行余额</span>
+                        <span>{t("common.walletBalance", { tokenName: tokenDisplayName })}</span>
                         <strong>{access.activeAddress ? `${formatToken(walletBalance.data, 18, 2)} ${tokenDisplayName}` : "--"}</strong>
                       </div>
                     </div>
 
                     <div className="capsule-referral-stats">
                       <div>
-                        <span>绑定邀请人</span>
+                        <span>{t("common.boundReferrer")}</span>
                         <strong>{referrerLabel}</strong>
                       </div>
                       <div>
-                        <span>邀请人数</span>
+                        <span>{t("common.invitees")}</span>
                         <strong>{referralStats.data?.[1]?.toString() ?? "0"}</strong>
                       </div>
                       <div>
-                        <span>累计奖励</span>
+                        <span>{t("common.totalRewards")}</span>
                         <strong>{referralStats.data?.[2] ? `${formatToken(referralStats.data[2], 18, 2)} ${tokenDisplayName}` : `0.00 ${tokenDisplayName}`}</strong>
                       </div>
                     </div>
 
                     {hasReferrerConflict && boundReferrer ? (
                       <div className="status-banner status-banner-warning">
-                        <strong>邀请链接已自动纠偏</strong>
-                        <span>你已绑定 {shortAddress(boundReferrer)}，系统会忽略旧缓存的邀请码，避免下注失败。</span>
+                        <strong>{t("play.referrerCorrected")}</strong>
+                        <span>{t("play.referrerCorrectedDesc", { referrer: shortAddress(boundReferrer) })}</span>
                         <button
                           type="button"
                           className="ghost-button"
@@ -1002,36 +1017,36 @@ export function PlayPage() {
                             sound.play("coin");
                           }}
                         >
-                          清除旧缓存
+                          {t("play.clearOldCache")}
                         </button>
                       </div>
                     ) : null}
 
                     <div className="capsule-share-card">
-                      <span>邀请链接</span>
-                      <code>{shareLink || "连接钱包后生成专属链接"}</code>
+                      <span>{t("play.inviteLink")}</span>
+                      <code>{shareLink || t("play.generateLinkAfterConnect")}</code>
                       <div className="capsule-share-actions">
                         <button type="button" onClick={() => void copyInviteLink()} disabled={!shareLink}>
-                          {copiedShareLink ? "已复制" : "复制"}
+                          {copiedShareLink ? t("common.copied") : t("common.copy")}
                         </button>
                         <button type="button" onClick={() => void shareInviteLink()} disabled={!shareLink}>
-                          分享
+                          {t("referral.share")}
                         </button>
                       </div>
                     </div>
 
                     <div className="capsule-history-panel">
                       <div className="capsule-history-head">
-                        <span>我的开奖记录</span>
-                        <strong>{myDiscoveries.length} 次</strong>
+                        <span>{t("play.myHistory")}</span>
+                        <strong>{`${myDiscoveries.length} ${t("common.timesSuffix")}`}</strong>
                       </div>
                       {myDiscoveries.length > 0 ? myDiscoveries.map((item) => (
                         <div key={item.key} className={`capsule-history-row ${item.tier.accentClass}`.trim()}>
                           <span>{item.tier.label}</span>
-                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout)} ${tokenDisplayName}` : "未命中"}</strong>
+                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout, numberLocale)} ${tokenDisplayName}` : t("play.miss")}</strong>
                         </div>
                       )) : (
-                        <div className="capsule-empty-state">还没开过盲盒，拉开封印试试。</div>
+                        <div className="capsule-empty-state">{t("play.noMyHistory")}</div>
                       )}
                     </div>
                   </div>
@@ -1040,41 +1055,41 @@ export function PlayPage() {
                 {activeTab === "spaceMe" ? (
                   <div className="capsule-me-panel">
                     <div className="capsule-wallet-card">
-                      <span>当前钱包</span>
-                      <strong>{access.activeAddress ? shortAddress(access.activeAddress) : "未连接"}</strong>
+                      <span>{t("common.currentWallet")}</span>
+                      <strong>{access.activeAddress ? shortAddress(access.activeAddress) : t("common.connectWalletShort")}</strong>
                       <div className="capsule-wallet-balance">
-                        <span>分红银行余额</span>
+                        <span>{t("common.walletBalance", { tokenName: tokenDisplayName })}</span>
                         <strong>{access.activeAddress ? `${formatToken(walletBalance.data, 18, 2)} ${tokenDisplayName}` : "--"}</strong>
                       </div>
                     </div>
 
                     <div className="capsule-referral-stats">
                       <div>
-                        <span>绑定邀请人</span>
+                        <span>{t("common.boundReferrer")}</span>
                         <strong>{referrerLabel}</strong>
                       </div>
                       <div>
-                        <span>邀请人数</span>
+                        <span>{t("common.invitees")}</span>
                         <strong>{referralStats.data?.[1]?.toString() ?? "0"}</strong>
                       </div>
                       <div>
-                        <span>累计奖励</span>
+                        <span>{t("common.totalRewards")}</span>
                         <strong>{referralStats.data?.[2] ? `${formatToken(referralStats.data[2], 18, 2)} ${tokenDisplayName}` : `0.00 ${tokenDisplayName}`}</strong>
                       </div>
                     </div>
 
                     <div className="capsule-history-panel">
                       <div className="capsule-history-head">
-                        <span>我的飞船记录</span>
-                        <strong>{mySpaceDiscoveries.length} 次</strong>
+                        <span>{t("play.mySpaceHistory")}</span>
+                        <strong>{`${mySpaceDiscoveries.length} ${t("common.timesSuffix")}`}</strong>
                       </div>
                       {mySpaceDiscoveries.length > 0 ? mySpaceDiscoveries.map((item) => (
                         <div key={item.key} className={`capsule-history-row ${item.won ? "success" : "failure"}`.trim()}>
-                          <span>{item.guessUp ? "看涨飞升" : "看跌坠落"} · 结果 {item.landedUp ? "UP" : "DOWN"}</span>
-                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout)} ${tokenDisplayName}` : "未命中"}</strong>
+                          <span>{`${item.guessUp ? t("space.guessUp") : t("space.guessDown")} · ${t("common.roundResult")} ${item.landedUp ? t("common.up") : t("common.down")}`}</span>
+                          <strong>{item.won ? `${formatDisplayToken(item.playerPayout, numberLocale)} ${tokenDisplayName}` : t("play.miss")}</strong>
                         </div>
                       )) : (
-                        <div className="capsule-empty-state">还没有飞船记录，完成一次飞行后会显示在这里。</div>
+                        <div className="capsule-empty-state">{t("play.noMySpaceHistory")}</div>
                       )}
                     </div>
                   </div>

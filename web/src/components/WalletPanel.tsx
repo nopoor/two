@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { bscChain } from "../config/chains";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useSoundEffects } from "../hooks/useSoundEffects";
+import { useI18n } from "../i18n/LanguageProvider";
 import { shortAddress } from "../lib/format";
 
 export function WalletPanel() {
   const access = useDappAccess();
   const sound = useSoundEffects();
+  const { t } = useI18n();
   const wasConnectedRef = useRef(access.isConnected);
   const copyResetTimerRef = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -87,7 +89,7 @@ export function WalletPanel() {
         if (!mounted) {
           return (
             <div className="wallet-header-card wallet-header-card-disconnected">
-              <button className="header-wallet-button muted" disabled>Loading</button>
+              <button className="header-wallet-button muted" disabled>{t("wallet.loading")}</button>
             </div>
           );
         }
@@ -102,7 +104,8 @@ export function WalletPanel() {
                   openConnectModal();
                 }}
               >
-                連接錢包 🚀
+                <span className="wallet-connect-label-desktop">{t("wallet.connect")}</span>
+                <span className="wallet-connect-label-mobile">{t("wallet.connectCompact")}</span>
               </button>
             </div>
           );
@@ -116,24 +119,24 @@ export function WalletPanel() {
                 sound.play("coin");
                 setMenuOpen((open) => !open);
               }}
-              title="管理錢包"
+              title={t("wallet.manage")}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
             >
               <span className={`wallet-status-dot ${access.onBsc ? "good" : "warn"}`.trim()} />
               <strong>{shortAddress(access.address)}</strong>
-              {!access.onBsc ? <small>{access.isSwitchingToBsc ? "正在切换 BSC" : "待切换网络"}</small> : null}
+              {!access.onBsc ? <small>{access.isSwitchingToBsc ? t("wallet.switching") : t("wallet.pendingNetwork")}</small> : null}
             </button>
 
             {menuOpen ? (
-              <div className="wallet-menu" role="menu" aria-label="錢包操作">
+              <div className="wallet-menu" role="menu" aria-label={t("wallet.menu")}>
                 <button
                   className="wallet-menu-button"
                   onClick={() => {
                     void handleCopyAddress();
                   }}
                 >
-                  {copied ? "地址已複製" : "複製地址"}
+                  {copied ? t("wallet.addressCopied") : t("wallet.copyAddress")}
                 </button>
                 {!access.onBsc ? (
                   <button
@@ -145,7 +148,7 @@ export function WalletPanel() {
                     }}
                     disabled={access.isSwitchingToBsc}
                   >
-                    {access.isSwitchingToBsc ? "请在钱包确认" : `切换到 ${bscChain.name}`}
+                    {access.isSwitchingToBsc ? t("wallet.confirmInWallet") : t("access.switchLabel", { chainName: bscChain.name })}
                   </button>
                 ) : null}
                 <button
@@ -157,7 +160,7 @@ export function WalletPanel() {
                     void access.requestDisconnect();
                   }}
                 >
-                  {access.isDisconnecting ? "Disconnecting..." : "斷開連接"}
+                  {access.isDisconnecting ? t("wallet.disconnecting") : t("wallet.disconnect")}
                 </button>
               </div>
             ) : null}

@@ -1,5 +1,6 @@
 import { type MutableRefObject, useEffect } from "react";
 import QRCode from "qrcode";
+import { useI18n } from "../i18n/LanguageProvider";
 
 const qrOptions = {
   errorCorrectionLevel: "M" as const,
@@ -17,6 +18,8 @@ type Props = {
 };
 
 export function ReferralQrCard({ value, canvasRef }: Props) {
+  const { t } = useI18n();
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -41,7 +44,7 @@ export function ReferralQrCard({ value, canvasRef }: Props) {
             <canvas ref={canvasRef} className="referral-qr-canvas" />
           </div>
         ) : (
-          <div className="referral-qr-placeholder">待生成</div>
+          <div className="referral-qr-placeholder">{t("referral.qrPending")}</div>
         )}
       </div>
     </div>

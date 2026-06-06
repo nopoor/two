@@ -2,6 +2,7 @@ import { useReadContract } from "wagmi";
 import { gameRegistryAbi } from "../abi/gamefi";
 import { bscChain } from "../config/chains";
 import { contracts } from "../config/contracts";
+import { useI18n } from "../i18n/LanguageProvider";
 import { publicGameCatalog, type PublicGameMode } from "../lib/gameCatalog";
 
 type GameConfigResult = { enabled: boolean } | undefined;
@@ -11,6 +12,7 @@ function isEnabled(config: GameConfigResult) {
 }
 
 export function useGameAvailability() {
+  const { t } = useI18n();
   const spaceConfig = useReadContract({
     address: contracts.gameRegistry,
     chainId: bscChain.id,
@@ -36,15 +38,17 @@ export function useGameAvailability() {
   const games = {
     space: {
       ...publicGameCatalog[0],
+      label: t(publicGameCatalog[0].labelKey),
       enabled: isEnabled(spaceConfig.data),
       isLoading: spaceConfig.isPending,
     },
     box: {
       ...publicGameCatalog[1],
+      label: t(publicGameCatalog[1].labelKey),
       enabled: isEnabled(boxConfig.data),
       isLoading: boxConfig.isPending,
     },
-  } satisfies Record<PublicGameMode, { key: PublicGameMode; gameId: `0x${string}`; label: string; primaryTab: "open" | "space"; enabled: boolean; isLoading: boolean }>;
+  } satisfies Record<PublicGameMode, { key: PublicGameMode; gameId: `0x${string}`; labelKey: string; label: string; primaryTab: "open" | "space"; enabled: boolean; isLoading: boolean }>;
 
   const orderedModes = publicGameCatalog
     .map((game) => games[game.key])

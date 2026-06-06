@@ -8,20 +8,20 @@ import { contracts } from "../config/contracts";
 import { bscChain } from "../config/chains";
 import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useTxFlow } from "../hooks/useTxFlow";
+import { useI18n } from "../i18n/LanguageProvider";
 import { shortAddress } from "../lib/format";
 
 const roles = [
-  { key: "DEFAULT_ADMIN_ROLE", label: "管理員", hash: zeroHash },
-  { key: "OPERATOR_ROLE", label: "營運", hash: keccak256(stringToHex("OPERATOR_ROLE")) },
-  { key: "PAUSER_ROLE", label: "暫停控制", hash: keccak256(stringToHex("PAUSER_ROLE")) },
-  { key: "REVENUE_ROLE", label: "收益管理", hash: keccak256(stringToHex("REVENUE_ROLE")) },
-  { key: "GAME_ADMIN_ROLE", label: "遊戲配置", hash: keccak256(stringToHex("GAME_ADMIN_ROLE")) },
-  { key: "AUTOMATION_ROLE", label: "自動化", hash: keccak256(stringToHex("AUTOMATION_ROLE")) },
+  { key: "DEFAULT_ADMIN_ROLE", hash: zeroHash },
+  { key: "OPERATOR_ROLE", hash: keccak256(stringToHex("OPERATOR_ROLE")) },
+  { key: "PAUSER_ROLE", hash: keccak256(stringToHex("PAUSER_ROLE")) },
+  { key: "REVENUE_ROLE", hash: keccak256(stringToHex("REVENUE_ROLE")) },
+  { key: "GAME_ADMIN_ROLE", hash: keccak256(stringToHex("GAME_ADMIN_ROLE")) },
+  { key: "AUTOMATION_ROLE", hash: keccak256(stringToHex("AUTOMATION_ROLE")) },
 ] as const;
 
-const betStatusText = ["未建立", "待开奖", "已结算", "已退款"] as const;
-
 export function AdminPage() {
+  const { numberLocale, t } = useI18n();
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const tx = useTxFlow();
@@ -126,6 +126,12 @@ export function AdminPage() {
   const actionLocked = tx.phase === "awaiting-signature" || tx.phase === "sending" || tx.phase === "confirming";
   const hasTodaySnapshot = todaySnapshot.data !== undefined && todaySnapshot.data[0] > 0n;
   const refundStatus = pendingBet.data ? Number(pendingBet.data[7]) : 0;
+  const betStatusText = [
+    t("admin.betStatus.missing"),
+    t("admin.betStatus.pending"),
+    t("admin.betStatus.settled"),
+    t("admin.betStatus.refunded"),
+  ] as const;
   const canPause = isPauser && paused.data === false;
   const canUnpause = isAdmin && paused.data === true;
   const canManageGames = isAdmin || isGameAdmin;
@@ -135,17 +141,21 @@ export function AdminPage() {
   const refundWager = pendingBet.data?.[3];
 
   const snapshotSummary = useMemo(() => {
-    if (todaySnapshot.data === undefined) return "读取中";
-    if (todaySnapshot.data[0] === 0n) return "今日尚未快照";
-    return `区块 #${todaySnapshot.data[0].toString()} · 分配 ${Number(formatEther(todaySnapshot.data[1])).toLocaleString("zh-CN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} 分红银行`;
-  }, [todaySnapshot.data]);
+    if (todaySnapshot.data === undefined) return t("admin.loading");
+    if (todaySnapshot.data[0] === 0n) return t("admin.noSnapshotToday");
+    return t("admin.snapshotSummary", {
+      block: todaySnapshot.data[0].toString(),
+      amount: Number(formatEther(todaySnapshot.data[1])).toLocaleString(numberLocale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      tokenName: t("common.tokenName"),
+    });
+  }, [numberLocale, t, todaySnapshot.data]);
 
   async function handlePauseToggle(nextAction: "pause" | "unpause") {
     if (!contracts.accessControl) {
-      tx.setError("管理合约地址未配置");
+      tx.setError(t("admin.accessControlMissing"));
       return;
     }
 
@@ -159,13 +169,13 @@ export function AdminPage() {
       });
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "状态更新失败");
+      tx.setError(error instanceof Error ? error.message : t("admin.updateStatusFailed"));
     }
   }
 
   async function handleRunSnapshot() {
     if (!contracts.nftRevenueDistributor || currentDay.data === undefined) {
-      tx.setError("快照参数尚未准备完成");
+      tx.setError(t("admin.snapshotParamsMissing"));
       return;
     }
 
@@ -180,13 +190,13 @@ export function AdminPage() {
       });
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "执行快照失败");
+      tx.setError(error instanceof Error ? error.message : t("admin.runSnapshotFailed"));
     }
   }
 
   async function handleRefundBet() {
     if (!contracts.gameManager || refundBetId === undefined) {
-      tx.setError("请输入有效注单编号");
+      tx.setError(t("admin.invalidBetId"));
       return;
     }
 
@@ -201,13 +211,13 @@ export function AdminPage() {
       });
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "退款失败");
+      tx.setError(error instanceof Error ? error.message : t("admin.refundFailed"));
     }
   }
 
   async function handleToggleGame(gameId: `0x${string}`, enabled: boolean) {
     if (!contracts.gameRegistry) {
-      tx.setError("游戏注册表地址未配置");
+      tx.setError(t("admin.registryMissing"));
       return;
     }
 
@@ -222,7 +232,7 @@ export function AdminPage() {
       });
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "更新游戏状态失败");
+      tx.setError(error instanceof Error ? error.message : t("admin.updateGameFailed"));
     }
   }
 
@@ -230,40 +240,40 @@ export function AdminPage() {
     <div className="vault-page-stack">
       <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
 
-      <SectionCard title="系統開關" description="暂停会影响下注、退款、分红领取等受控流程。">
+      <SectionCard title={t("admin.pauseTitle")} description={t("admin.pauseDesc")}>
         <div className="claim-action-row">
           <div className="claim-action-copy">
-            <strong>{paused.data ? "系统已暂停" : "系统运行中"}</strong>
-            <span>{paused.data ? "仅管理员可恢复系统" : "可在此执行暂停控制"}</span>
+            <strong>{paused.data ? t("admin.paused") : t("admin.running")}</strong>
+            <span>{paused.data ? t("admin.onlyAdminCanResume") : t("admin.canPauseHere")}</span>
           </div>
           <div className="claim-action-buttons">
             <button className="warning-button" disabled={actionLocked || !canPause} onClick={() => void handlePauseToggle("pause")}>
-              緊急暫停
+              {t("admin.pause")}
             </button>
             <button className="primary-button" disabled={actionLocked || !canUnpause} onClick={() => void handlePauseToggle("unpause")}>
-              恢復系統
+              {t("admin.resume")}
             </button>
           </div>
         </div>
       </SectionCard>
 
-      <SectionCard title="遊戲上線控制">
+      <SectionCard title={t("admin.gamesTitle")}>
         <div className="form-shell">
           {gameAvailability.isLoading ? (
-            <div className="empty-state">读取游戏状态中</div>
+            <div className="empty-state">{t("admin.loadingGameStates")}</div>
           ) : (
             <div className="portfolio-grid">
               {Object.values(gameAvailability.games).map((game) => (
                 <div key={game.key} className="portfolio-card">
                   <span>{game.label}</span>
-                  <strong>{game.enabled ? "已上线" : "未上线"}</strong>
+                  <strong>{game.enabled ? t("admin.online") : t("admin.offline")}</strong>
                   <div className="claim-action-buttons">
                     <button
                       className={game.enabled ? "warning-button" : "primary-button"}
                       disabled={actionLocked || !canManageGames}
                       onClick={() => void handleToggleGame(game.gameId, !game.enabled)}
                     >
-                      {game.enabled ? "下线此游戏" : "上线此游戏"}
+                      {game.enabled ? t("admin.disableGame") : t("admin.enableGame")}
                     </button>
                   </div>
                 </div>
@@ -272,14 +282,14 @@ export function AdminPage() {
           )}
           {!canManageGames ? (
             <div className="status-banner">
-              <strong>当前地址没有游戏开关权限</strong>
-              <span>仅owner钱包连接后可操作</span>
+              <strong>{t("admin.noGamePermissionTitle")}</strong>
+              <span>{t("admin.noGamePermissionDesc")}</span>
             </div>
           ) : null}
         </div>
       </SectionCard>
 
-      <SectionCard title="每日快照" description="为 NFT 分红生成当日快照并从收益池拉取当日可分配额度。">
+      <SectionCard title={t("admin.snapshotTitle")} description={t("admin.snapshotDesc")}>
         <div className="claim-action-row">
           <div className="claim-action-copy">
             <strong>UTC+8 Day #{currentDay.data?.toString() || "--"}</strong>
@@ -287,25 +297,25 @@ export function AdminPage() {
           </div>
           <div className="claim-action-buttons">
             <button className="primary-button" disabled={actionLocked || !canRunSnapshot} onClick={() => void handleRunSnapshot()}>
-              執行當日快照
+              {t("admin.runSnapshot")}
             </button>
           </div>
         </div>
         {hasTodaySnapshot ? (
           <div className="status-banner">
-            <strong>今日快照已存在</strong>
-            <span>同一日只允许创建一次快照；用户现在可以预览并领取当日收益。</span>
+            <strong>{t("admin.snapshotExistsTitle")}</strong>
+            <span>{t("admin.snapshotExistsDesc")}</span>
           </div>
         ) : null}
       </SectionCard>
 
-      <SectionCard title="退款處理" description="当 VRF 长时间未返回时，可按注单编号将待开奖注单原路退款。">
+      <SectionCard title={t("admin.refundTitle")} description={t("admin.refundDesc")}>
         <div className="form-shell">
           <label>
-            <span>注單編號</span>
+            <span>{t("admin.betId")}</span>
             <input
               inputMode="numeric"
-              placeholder="例如 12"
+              placeholder={t("admin.betIdPlaceholder")}
               value={refundBetIdInput}
               onChange={(event) => {
                 const nextValue = event.target.value.replace(/[^\d]/g, "");
@@ -317,26 +327,26 @@ export function AdminPage() {
           {pendingBet.data ? (
             <div className="status-rail">
               <div className="summary-row">
-                <span>玩家</span>
+                <span>{t("admin.player")}</span>
                 <strong>{refundPlayer && refundPlayer !== "0x0000000000000000000000000000000000000000" ? shortAddress(refundPlayer) : "--"}</strong>
               </div>
               <div className="summary-row">
-                <span>狀態</span>
-                <strong>{betStatusText[refundStatus] ?? "未知"}</strong>
+                <span>{t("admin.status")}</span>
+                <strong>{betStatusText[refundStatus] ?? t("admin.statusUnknown")}</strong>
               </div>
               <div className="summary-row">
-                <span>下注額</span>
-                <strong>{refundWager ? `${Number(formatEther(refundWager)).toLocaleString("zh-CN", {
+                <span>{t("admin.wager")}</span>
+                <strong>{refundWager ? `${Number(formatEther(refundWager)).toLocaleString(numberLocale, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} 分红银行` : "--"}</strong>
+                })} ${t("common.tokenName")}` : "--"}</strong>
               </div>
             </div>
           ) : null}
 
           <div className="claim-action-buttons">
             <button className="warning-button" disabled={actionLocked || !canRefundPendingBet} onClick={() => void handleRefundBet()}>
-              退款此注單
+              {t("admin.refundBet")}
             </button>
           </div>
         </div>

@@ -8,12 +8,14 @@ import { bscChain } from "../config/chains";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { useTxFlow } from "../hooks/useTxFlow";
+import { useI18n } from "../i18n/LanguageProvider";
 import { formatToken } from "../lib/format";
 
 export function RevenuePage() {
   const access = useDappAccess();
   const sound = useSoundEffects();
   const tx = useTxFlow();
+  const { t } = useI18n();
   const { writeContractAsync } = useWriteContract();
   const claimLocked = tx.phase === "awaiting-signature" || tx.phase === "sending" || tx.phase === "confirming";
   const previousPhaseRef = useRef(tx.phase);
@@ -102,31 +104,31 @@ export function RevenuePage() {
   const actionConfig =
     access.writeState === "ready"
       ? {
-          ...access.getActionConfig("領取分紅", "鏈上數據即時同步，以實際入帳為準。"),
+          ...access.getActionConfig(t("revenue.claimReadyLabel"), t("revenue.claimReadyHint")),
           disabled: claimLocked || !hasTodaySnapshot,
           onClick: claim,
         }
-      : access.getActionConfig("領取分紅", "鏈上數據即時同步，以實際入帳為準。");
+      : access.getActionConfig(t("revenue.claimReadyLabel"), t("revenue.claimReadyHint"));
 
   const currentActionLabel =
     access.writeState === "connect"
-      ? "連接錢包"
+      ? t("common.connectWallet")
       : access.writeState === "switch"
-        ? "切換到 BSC"
+        ? t("access.switchLabel", { chainName: bscChain.name })
         : access.writeState === "observer"
-          ? "只讀模式"
+          ? t("revenue.readOnly")
           : hasTodaySnapshot
-            ? "領取當日"
-            : "等待快照";
+            ? t("revenue.claimToday")
+            : t("revenue.waitSnapshot");
 
   const historyActionConfig =
     access.writeState === "ready"
       ? {
-          ...access.getActionConfig("批量補領", "補領近 7 天未領分紅。"),
+          ...access.getActionConfig(t("revenue.batchClaimReadyLabel"), t("revenue.batchClaimReadyHint")),
           disabled: claimLocked || !hasHistoricalClaims,
           onClick: claimHistoryBatch,
         }
-      : access.getActionConfig("批量補領", "補領近 7 天未領分紅。");
+      : access.getActionConfig(t("revenue.batchClaimReadyLabel"), t("revenue.batchClaimReadyHint"));
 
   useEffect(() => {
     if (previousPhaseRef.current !== tx.phase && tx.phase === "success") {
@@ -137,12 +139,12 @@ export function RevenuePage() {
 
   async function claim() {
     if (!contracts.nftRevenueDistributor || currentDay.data === undefined) {
-      tx.setError("服務暫時不可用");
+      tx.setError(t("common.serviceUnavailable"));
       return;
     }
 
     if (!hasTodaySnapshot) {
-      tx.setError("今日收益快照尚未生成，请稍后再领取");
+      tx.setError(t("revenue.snapshotNotReadyError"));
       return;
     }
 
@@ -157,13 +159,13 @@ export function RevenuePage() {
       });
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "領取失敗");
+      tx.setError(error instanceof Error ? error.message : t("revenue.claimFailed"));
     }
   }
 
   async function claimHistoryBatch() {
     if (!contracts.nftRevenueDistributor || historicalEntries.length === 0) {
-      tx.setError("暫無可補領分紅");
+      tx.setError(t("revenue.noHistoricalClaims"));
       return;
     }
 
@@ -178,7 +180,7 @@ export function RevenuePage() {
       });
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "補領失敗");
+      tx.setError(error instanceof Error ? error.message : t("revenue.batchClaimFailed"));
     }
   }
 
@@ -194,35 +196,35 @@ export function RevenuePage() {
   return (
     <div className="vault-page-stack">
       <SectionCard
-        title="每日分紅"
-        description={access.isConnected ? undefined : "可先查看鏈上數據。"}
+        title={t("revenue.claimTitle")}
+        description={access.isConnected ? undefined : t("revenue.readChainData")}
         className={access.writeState !== "ready" ? "readonly-state" : undefined}
       >
         <div className="yield-overview-grid">
           <div className="yield-stat-box yield-stat-box-primary">
-            <span>當日可領</span>
-            <strong>{access.activeAddress ? `${formatToken(claimPreview.data)} 分紅銀行` : "--"}</strong>
+            <span>{t("revenue.dailyClaimable")}</span>
+            <strong>{access.activeAddress ? `${formatToken(claimPreview.data)} ${t("common.tokenName")}` : "--"}</strong>
           </div>
           <div className="yield-stat-box">
-            <span>當前快照日</span>
+            <span>{t("revenue.snapshotDay")}</span>
             <strong>{currentDay.data?.toString() || "--"}</strong>
           </div>
           <div className="yield-stat-box">
-            <span>收益池</span>
-            <strong>{formatToken(incomePoolBalance.data)} 分紅銀行</strong>
+            <span>{t("revenue.pool")}</span>
+            <strong>{formatToken(incomePoolBalance.data)} {t("common.tokenName")}</strong>
           </div>
         </div>
 
         {!hasTodaySnapshot ? (
           <div className="status-banner status-banner-warning revenue-snapshot-banner">
-            <strong>今日快照尚未生成</strong>
+            <strong>{t("revenue.snapshotMissing")}</strong>
           </div>
         ) : null}
 
         <div className="claim-action-row">
           <div className="claim-action-copy">
-            <strong>{access.activeAddress ? `歷史未領 ${historicalEntries.length} 日` : "歷史未領 --"}</strong>
-            <span>{access.activeAddress ? `${formatToken(historicalTotal)} 分紅銀行` : "--"}</span>
+            <strong>{access.activeAddress ? t("revenue.unclaimedHistory", { days: historicalEntries.length }) : t("revenue.unclaimedHistoryEmpty")}</strong>
+            <span>{access.activeAddress ? `${formatToken(historicalTotal)} ${t("common.tokenName")}` : "--"}</span>
           </div>
           <div className="claim-action-buttons">
             {access.writeState === "ready" && hasHistoricalClaims ? (
@@ -231,7 +233,7 @@ export function RevenuePage() {
                 disabled={historyActionConfig.disabled}
                 onClick={() => void historyActionConfig.onClick()}
               >
-                批量補領
+                {t("revenue.batchClaimReadyLabel")}
               </button>
             ) : null}
             <button className={`${actionConfig.variant}-button`} disabled={actionConfig.disabled} onClick={handleClaimAction}>

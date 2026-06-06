@@ -7,10 +7,13 @@ import { SpacePredictionPage } from "./pages/SpacePredictionPage";
 import { NftPage } from "./pages/NftPage";
 import { RevenuePage } from "./pages/RevenuePage";
 import { ReferralPage } from "./pages/ReferralPage";
+import { useI18n } from "./i18n/LanguageProvider";
 
 const AdminPage = lazy(() => import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })));
 
 export function App() {
+  const { t } = useI18n();
+
   return (
     <Routes>
       <Route element={<AppShell />}>
@@ -23,7 +26,7 @@ export function App() {
         <Route
           path="/admin"
           element={(
-            <Suspense fallback={<div className="section-card compact">載入中</div>}>
+            <Suspense fallback={<div className="section-card compact">{t("app.loading")}</div>}>
               <AdminPage />
             </Suspense>
           )}

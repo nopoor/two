@@ -12,11 +12,11 @@ import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useReferralLanding } from "../hooks/useReferralLanding";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { useTxFlow } from "../hooks/useTxFlow";
+import { useI18n } from "../i18n/LanguageProvider";
 import { shortAddress } from "../lib/format";
 import { coinFlipGameId } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
 const maxAllowance = (2n ** 256n) - 1n;
-const tokenDisplayName = "分红银行";
 const wagerMultipliers = [1, 2, 3];
 const maxWagerMultiplier = wagerMultipliers[wagerMultipliers.length - 1];
 
@@ -39,16 +39,16 @@ type SpacePredictionPanelProps = {
 
 type ResultRevealPhase = "idle" | "impact" | "card";
 
-function formatDisplayToken(value?: bigint, fractionDigits = 2) {
+function formatDisplayToken(value: bigint | undefined, numberLocale: string, fractionDigits = 2) {
   if (value === undefined) return "--";
-  return Number(formatEther(value)).toLocaleString("zh-CN", {
+  return Number(formatEther(value)).toLocaleString(numberLocale, {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
 }
 
-function formatBankrollUnits(units: number) {
-  return (units * 1000).toLocaleString("zh-CN", {
+function formatBankrollUnits(units: number, numberLocale: string) {
+  return (units * 1000).toLocaleString(numberLocale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
@@ -62,6 +62,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const tx = useTxFlow();
   const sound = useSoundEffects();
   const access = useDappAccess();
+  const { numberLocale, t } = useI18n();
   const referralLanding = useReferralLanding(access.address);
   const publicClient = usePublicClient({ chainId: bscChain.id });
   const { writeContractAsync } = useWriteContract();
@@ -122,6 +123,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const writeDisabled = actionLocked || normalizedWager === 0 || hasPendingBet || trackedBetId !== undefined;
   const displayedGuessUp = resolvedRound?.guessUp ?? submittedGuessUp ?? guessUp;
   const maxPayout = wagerPreview ? (wagerPreview * 194n) / 100n : 0n;
+  const tokenDisplayName = t("common.tokenName");
   const isResolvingRound =
     actionMode === "bet"
     && (tx.phase === "awaiting-signature"
@@ -130,15 +132,15 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
       || (trackedBetId !== undefined && resolvedRound === undefined));
   const showResultCard = resolvedRound !== undefined && revealPhase === "card";
   const boardOverlayTitle = isResolvingRound
-      ? "LOCKING..."
+      ? t("space.locking")
       : resolvedRound
-        ? (resolvedRound.landedUp ? "UP" : "DOWN")
-        : (displayedGuessUp ? "UP ROUTE" : "DOWN ROUTE");
+        ? (resolvedRound.landedUp ? t("common.up") : t("common.down"))
+        : (displayedGuessUp ? `${t("common.up")} ROUTE` : `${t("common.down")} ROUTE`);
   const boardOverlaySubtitle = isResolvingRound
-    ? "等待星图回传"
+    ? t("space.waitingStarMap")
     : resolvedRound
-      ? (resolvedRound.won ? "命中航线" : "偏离航线")
-      : (displayedGuessUp ? "看涨飞升" : "看跌坠落");
+      ? (resolvedRound.won ? t("space.hitRoute") : t("space.missedRoute"))
+      : (displayedGuessUp ? t("space.guessUp") : t("space.guessDown"));
   const boardClassName = [
     "space-ship-board",
     isResolvingRound ? "resolving" : "",
@@ -157,26 +159,26 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const actionConfig =
     access.writeState === "ready" && needsApproval
       ? {
-          label: "授权飞船仓位",
-          hint: "首次进入经典模式，先授权金库扣款。",
+          label: t("space.approveLabel"),
+          hint: t("space.approveHint"),
           disabled: writeDisabled,
           onClick: approveToken,
         }
       : access.writeState === "ready"
         ? {
-            label: guessUp ? "部署上冲仓位" : "部署下坠仓位",
+            label: guessUp ? t("space.placeUpLabel") : t("space.placeDownLabel"),
             hint: "",
             disabled: writeDisabled,
             onClick: placeBet,
           }
         : {
-            label: access.getActionConfig("进入飞船模式", "").label,
-            hint: access.getActionConfig("进入飞船模式", "").hint,
-            disabled: access.getActionConfig("进入飞船模式", "").disabled,
-            onClick: access.getActionConfig("进入飞船模式", "").onClick,
+            label: access.getActionConfig(t("game.mode.space"), "").label,
+            hint: access.getActionConfig(t("game.mode.space"), "").hint,
+            disabled: access.getActionConfig(t("game.mode.space"), "").disabled,
+            onClick: access.getActionConfig(t("game.mode.space"), "").onClick,
           };
   const actionHint = hasReferrerConflict && boundReferrer
-    ? `检测到历史邀请缓存，当前下注将按已绑定邀请人 ${shortAddress(boundReferrer)} 结算。`
+    ? t("space.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
 
   useEffect(() => {
@@ -289,7 +291,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
   async function approveToken() {
     if (!contracts.flapToken || !contracts.bankrollVault) {
-      tx.setError("合约地址未配置完成");
+      tx.setError(t("space.contractMissing"));
       return;
     }
 
@@ -307,13 +309,13 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "授权失败");
+      tx.setError(error instanceof Error ? error.message : t("space.approveFailed"));
     }
   }
 
   async function placeBet() {
     if (!contracts.gameManager || !wagerPreview) {
-      tx.setError("下注参数未准备完成");
+      tx.setError(t("space.betParamsMissing"));
       return;
     }
 
@@ -340,7 +342,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
       tx.setHashAndSending(hash);
     } catch (error) {
-      tx.setError(error instanceof Error ? error.message : "部署仓位失败");
+      tx.setError(error instanceof Error ? error.message : t("space.placeBetFailed"));
     }
   }
 
@@ -350,9 +352,9 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         <div className="space-stage-hero">
           <div className="space-stage-head">
             <div>
-              <strong>星际预测</strong>
+              <strong>{t("space.pageTitle")}</strong>
             </div>
-            {showBackLink ? <Link to="/play" className="space-back-link">返回游戏大厅</Link> : null}
+            {showBackLink ? <Link to="/play" className="space-back-link">{t("space.backToLobby")}</Link> : null}
           </div>
 
           <div className={boardClassName}>
@@ -375,7 +377,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
               onClick={() => setGuessUp(true)}
               disabled={isResolvingRound}
             >
-              看涨飞升
+              {t("space.guessUp")}
             </button>
             <button
               type="button"
@@ -383,7 +385,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
               onClick={() => setGuessUp(false)}
               disabled={isResolvingRound}
             >
-              看跌坠落
+              {t("space.guessDown")}
             </button>
           </div>
 
@@ -392,12 +394,12 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         <div className="space-control-card">
           <div className="space-control-head">
             <div>
-              <span>本次投入</span>
-              <strong>{formatBankrollUnits(normalizedWager || 1)} {tokenDisplayName}</strong>
+              <span>{t("space.currentStake")}</span>
+              <strong>{formatBankrollUnits(normalizedWager || 1, numberLocale)} {tokenDisplayName}</strong>
             </div>
             <div>
-              <span>理论极奖</span>
-              <strong>{wagerPreview ? `${formatDisplayToken(maxPayout)} ${tokenDisplayName}` : "--"}</strong>
+              <span>{t("space.maxPayout")}</span>
+              <strong>{wagerPreview ? `${formatDisplayToken(maxPayout, numberLocale)} ${tokenDisplayName}` : "--"}</strong>
             </div>
           </div>
 
@@ -426,8 +428,8 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
           <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
           {refundedBetId !== undefined ? (
             <div className="status-banner status-banner-warning">
-              <strong>本轮已退款</strong>
-              <span>注单 #{refundedBetId.toString()} 未完成开奖，运营已退回本轮投入。</span>
+              <strong>{t("common.roundRefunded")}</strong>
+              <span>{t("space.roundRefundedDetail", { betId: refundedBetId.toString() })}</span>
             </div>
           ) : null}
         </div>
@@ -435,16 +437,16 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         {showResultCard && resolvedRound ? (
           <div className={`space-result-card ${resolvedRound.won ? "success" : "failure"}`.trim()}>
             <div>
-              <span>本轮结果</span>
-              <strong>{resolvedRound.landedUp ? "UP" : "DOWN"}</strong>
+              <span>{t("common.roundResult")}</span>
+              <strong>{resolvedRound.landedUp ? t("common.up") : t("common.down")}</strong>
             </div>
             <div>
-              <span>你的判断</span>
-              <strong>{resolvedRound.guessUp ? "UP" : "DOWN"}</strong>
+              <span>{t("space.yourGuess")}</span>
+              <strong>{resolvedRound.guessUp ? t("common.up") : t("common.down")}</strong>
             </div>
             <div>
-              <span>到账金额</span>
-              <strong>{resolvedRound.won ? `${formatDisplayToken(resolvedRound.playerPayout)} ${tokenDisplayName}` : `0 ${tokenDisplayName}`}</strong>
+              <span>{t("common.payout")}</span>
+              <strong>{resolvedRound.won ? `${formatDisplayToken(resolvedRound.playerPayout, numberLocale)} ${tokenDisplayName}` : `0 ${tokenDisplayName}`}</strong>
             </div>
           </div>
         ) : null}
@@ -455,9 +457,10 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
 export function SpacePredictionPage() {
   const gameAvailability = useGameAvailability();
+  const { t } = useI18n();
 
   if (gameAvailability.isLoading) {
-    return <div className="section-card compact">读取游戏上线状态中</div>;
+    return <div className="section-card compact">{t("common.loadingGameStatus")}</div>;
   }
 
   if (!gameAvailability.games.space.enabled) {

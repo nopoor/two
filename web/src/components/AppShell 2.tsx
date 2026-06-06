@@ -4,9 +4,16 @@ import { WalletPanel } from "./WalletPanel";
 import { bscChain } from "../config/chains";
 import { useAdminAccess } from "../hooks/useAdminAccess";
 import { useDappAccess } from "../hooks/useDappAccess";
-import { useI18n } from "../i18n/LanguageProvider";
 import { useReferralLanding } from "../hooks/useReferralLanding";
 import { useSoundEffects } from "../hooks/useSoundEffects";
+
+const publicNavItems = [
+  { to: "/", label: "🏦 分紅總覽", mobileLabel: "總覽" },
+  { to: "/play", label: "🎲 遊戲終端", mobileLabel: "遊戲" },
+  { to: "/nft", label: "🪙 NFT 權益", mobileLabel: "NFT" },
+  { to: "/revenue", label: "💰 分紅金庫", mobileLabel: "分紅" },
+  { to: "/referrals", label: "🤝 邀請獎勵", mobileLabel: "邀請" },
+];
 
 const featuredContractAddress = "0x1b2884470a5de9a39dc234a20141146de6b67777";
 const priceCacheKey = "dividend-bank-token-price-cache";
@@ -17,11 +24,11 @@ type TokenPriceSnapshot = {
   priceUsd: number | null;
 };
 
-function formatUsdPrice(value: number | null, numberLocale: string) {
+function formatUsdPrice(value: number | null) {
   if (value === null || Number.isNaN(value)) return "--";
 
   const digits = value >= 1 ? 4 : value >= 0.01 ? 5 : 7;
-  return `$${value.toLocaleString(numberLocale, {
+  return `$${value.toLocaleString(undefined, {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
   })}`;
@@ -57,7 +64,6 @@ function ArrowUpRightIcon() {
 }
 
 export function AppShell() {
-  const { locale, numberLocale, setLocale, t } = useI18n();
   const location = useLocation();
   const access = useDappAccess({ trackEvents: true });
   useReferralLanding(access.address);
@@ -71,20 +77,11 @@ export function AppShell() {
   const isAdminRoute = location.pathname === "/admin";
   const isHomeRoute = location.pathname === "/";
   const isPlayRoute = location.pathname.startsWith("/play");
-  const adminSessionActive = access.isConnected && hasAdminAccess;
   const allowDisconnectedPlay = isPlayRoute && !access.isConnected;
   const showDisconnectedLanding = !access.isConnected && !allowDisconnectedPlay;
   const showPageStage = access.isConnected || allowDisconnectedPlay;
-  const showBottomNav = access.isConnected && !hasAdminAccess;
-  const nextLocaleLabel = locale === "zh-TW" ? t("lang.en") : t("lang.zh");
-  const publicNavItems = [
-    { to: "/", label: t("nav.home"), mobileLabel: t("nav.homeMobile") },
-    { to: "/play", label: t("nav.play"), mobileLabel: t("nav.playMobile") },
-    { to: "/nft", label: t("nav.nft"), mobileLabel: t("nav.nftMobile") },
-    { to: "/revenue", label: t("nav.revenue"), mobileLabel: t("nav.revenueMobile") },
-    { to: "/referrals", label: t("nav.referrals"), mobileLabel: t("nav.referralsMobile") },
-  ];
-  const navItems = publicNavItems;
+  const showBottomNav = access.isConnected;
+  const navItems = hasAdminAccess ? [...publicNavItems, { to: "/admin", label: "🛠 管理中心", mobileLabel: "管理" }] : publicNavItems;
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -163,20 +160,16 @@ export function AppShell() {
     }
 
     if (!previousConnectedRef.current && access.isConnected) {
-      setToastMessage(t("toast.walletConnected"));
+      setToastMessage("錢包已連接");
     } else if (previousConnectedRef.current && !access.isConnected) {
-      setToastMessage(t("toast.walletDisconnected"));
+      setToastMessage("錢包已斷開連接");
     }
 
     previousConnectedRef.current = access.isConnected;
-  }, [access.address, access.isConnected, t]);
+  }, [access.address, access.isConnected]);
 
   if ((!access.isConnected || !hasAdminAccess) && isAdminRoute && !isLoading) {
     return <Navigate to="/" replace />;
-  }
-
-  if (adminSessionActive && !isAdminRoute && !isLoading) {
-    return <Navigate to="/admin" replace />;
   }
 
   if (showDisconnectedLanding && !isHomeRoute) {
@@ -185,12 +178,12 @@ export function AppShell() {
 
   async function copyAddress() {
     if (!contractAddress) {
-      setToastMessage(t("toast.contractUnavailable"));
+      setToastMessage("合約地址待公布");
       return;
     }
     await navigator.clipboard.writeText(contractAddress);
     sound.play("coin");
-    setToastMessage(t("toast.contractCopied"));
+    setToastMessage("合約地址已複製");
   }
 
   return (
@@ -203,49 +196,22 @@ export function AppShell() {
 
       <header className="site-header">
         <div className="site-header-inner">
-          <div className={`brand-cluster ${access.isConnected ? "brand-cluster-connected-mobile" : ""}`.trim()}>
+          <div className="brand-cluster">
             <div className="brand-icon-box">
-              <img src="/apple-touch-icon.png" alt={t("brand.name")} className="brand-icon" />
+              <img src="/apple-touch-icon.png" alt="分紅銀行" className="brand-icon" />
             </div>
-            <div className={`brand-copy ${locale === "en" && !access.isConnected ? "brand-copy-compact-mobile" : ""}`.trim()}>
-              <h1>{t("brand.name")}</h1>
+            <div className="brand-copy">
+              <h1>分紅銀行</h1>
             </div>
           </div>
 
           <div className="header-controls">
-            <div className="language-toggle" role="group" aria-label={t("lang.toggle")}>
-              <button
-                type="button"
-                className={`language-toggle-button ${locale === "zh-TW" ? "active" : ""}`.trim()}
-                onClick={() => setLocale("zh-TW")}
-                aria-pressed={locale === "zh-TW"}
-              >
-                {t("lang.zh")}
-              </button>
-              <button
-                type="button"
-                className={`language-toggle-button ${locale === "en" ? "active" : ""}`.trim()}
-                onClick={() => setLocale("en")}
-                aria-pressed={locale === "en"}
-              >
-                {t("lang.en")}
-              </button>
-            </div>
-            <button
-              type="button"
-              className="language-toggle-compact"
-              onClick={() => setLocale(locale === "zh-TW" ? "en" : "zh-TW")}
-              aria-label={t("lang.toggle")}
-              title={t("lang.toggle")}
-            >
-              {nextLocaleLabel}
-            </button>
             <button
               type="button"
               className={`sound-toggle-button ${sound.muted ? "muted" : "active"}`.trim()}
               onClick={sound.toggleMuted}
-              aria-label={sound.muted ? t("header.soundOn") : t("header.soundOff")}
-              title={sound.muted ? t("header.soundOn") : t("header.soundOff")}
+              aria-label={sound.muted ? "開啟音效" : "靜音"}
+              title={sound.muted ? "開啟音效" : "靜音"}
             >
               {sound.muted ? <VolumeXIcon /> : <Volume2Icon />}
             </button>
@@ -255,35 +221,35 @@ export function AppShell() {
       </header>
 
       <main className={`site-main ${showBottomNav ? "site-main-with-bottom-nav" : ""}`.trim()}>
-        {!adminSessionActive && isHomeRoute ? (
+        {!hasAdminAccess && isHomeRoute ? (
           <>
             <section className="hero-banner">
               <div className="hero-banner-copy">
-                <div className="hero-badge hero-badge-bouncy">{t("home.heroBadge")}</div>
+                <div className="hero-badge hero-badge-bouncy">🔥 鏈上分紅終端</div>
                 <h2>
-                  {t("home.heroTitle")}
-                  <span> {t("home.heroSubtitle")}</span>
+                  不靠體力，靠權益！
+                  <span> 分紅銀行首創「遊戲通縮 + NFT 權益」雙驅動的最野模式。</span>
                 </h2>
               </div>
 
               <div className="hero-contract-card">
-                <div className="contract-ribbon">{t("home.contractRibbon")}</div>
-                <p className="hero-contract-label">{t("common.contractAddress")}</p>
+                <div className="contract-ribbon">極品代幣</div>
+                <p className="hero-contract-label">CONTRACT ADDRESS</p>
                 <div className="contract-address-box">
                   <span className="contract-address-full">{contractAddress}</span>
                   <span className="contract-address-compact">{`${contractAddress.slice(0, 16)}...${contractAddress.slice(-12)}`}</span>
                   <button type="button" className="icon-button" onClick={() => void copyAddress()}>
-                    {t("common.copy")}
+                    複製
                   </button>
                 </div>
                 <div className="hero-contract-meta">
                   <div>
-                    <span>{t("home.totalSupply")}</span>
+                    <span>發行總量</span>
                     <strong>1,000,000,000</strong>
                   </div>
                   <div>
-                    <span>{t("home.currentPrice")}</span>
-                    <strong>{formatUsdPrice(tokenPrice?.priceUsd ?? null, numberLocale)}</strong>
+                    <span>目前幣價</span>
+                    <strong>{formatUsdPrice(tokenPrice?.priceUsd ?? null)}</strong>
                   </div>
                 </div>
                 <a
@@ -292,7 +258,7 @@ export function AppShell() {
                   rel="noreferrer"
                   className="hero-link-button"
                 >
-                  <span>{t("home.viewOnBscScan")}</span>
+                  <span>在 BscScan 查看</span>
                   <ArrowUpRightIcon />
                 </a>
               </div>
@@ -301,29 +267,29 @@ export function AppShell() {
             {showDisconnectedLanding ? (
               <section className="landing-preview-shell">
                 <div className="promo-card promo-card-gold landing-preview-feature">
-                  <span className="promo-label">{t("home.nftPreviewLabel")}</span>
-                  <strong>{t("home.nftPreviewTitle")}</strong>
-                  <p>{t("home.nftPreviewDesc")}</p>
+                  <span className="promo-label">🪙 NFT 權益預覽</span>
+                  <strong>不是裝飾品，是分紅資格。</strong>
+                  <p>持有分紅銀行 NFT，即可參與每日收益分配。這不是單純收藏卡，而是鏈上可追蹤的收益權益憑證。</p>
                 </div>
 
                 <div className="landing-preview-side">
                   <div className="dense-card-grid">
                     <div className="promo-card">
-                      <span>{t("home.previewSupply")}</span>
+                      <span>總供應</span>
                       <strong>420</strong>
                     </div>
                     <div className="promo-card">
-                      <span>{t("home.previewDividend")}</span>
-                      <strong>{t("home.previewDailySnapshot")}</strong>
+                      <span>分紅權益</span>
+                      <strong>每日快照分配</strong>
                     </div>
                     <div className="promo-card promo-card-violet landing-preview-wide">
-                      <span>{t("home.previewPosition")}</span>
-                      <strong>{t("home.previewVoucher")}</strong>
+                      <span>資產定位</span>
+                      <strong>鏈上收益憑證</strong>
                     </div>
                   </div>
 
                   <div className="meme-bullet-card landing-preview-note">
-                    <p>{t("home.previewNote")}</p>
+                    <p>連接錢包後可查看持有數量、NFT 編號與當前分紅資格。</p>
                   </div>
                 </div>
               </section>
@@ -332,7 +298,7 @@ export function AppShell() {
         ) : null}
 
         {showBottomNav ? (
-          <nav className="tab-strip-shell" aria-label={t("common.mainNav")}>
+          <nav className="tab-strip-shell" aria-label="主導航">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -349,15 +315,15 @@ export function AppShell() {
 
         {access.isObserverMode ? (
           <div className="status-banner status-banner-observer">
-            <strong>{t("common.observerMode")}</strong>
-            <span>{t("common.observerDetail")}</span>
+            <strong>Observer Mode</strong>
+            <span>目前為只讀查看模式，所有簽名交易已停用。</span>
           </div>
         ) : null}
 
         {access.isConnected && !access.onBsc ? (
           <div className="status-banner status-banner-warning">
-            <strong>{t("common.wrongNetwork")}</strong>
-            <span>{t("common.wrongNetworkDetail", { chainName: bscChain.name })}</span>
+            <strong>Wrong Network</strong>
+            <span>公開資料仍可瀏覽，鏈上操作需切換至 {bscChain.name}。</span>
           </div>
         ) : null}
 

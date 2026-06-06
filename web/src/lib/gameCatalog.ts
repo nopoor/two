@@ -9,18 +9,18 @@ export const publicGameCatalog = [
   {
     key: "space" as const,
     gameId: coinFlipGameId,
-    label: "飞船模式",
+    labelKey: "game.mode.space",
     primaryTab: "space" as const,
   },
   {
     key: "box" as const,
     gameId: mysteryBoxGameId,
-    label: "盲盒模式",
+    labelKey: "game.mode.box",
     primaryTab: "open" as const,
   },
 ] satisfies Array<{
   key: PublicGameMode;
   gameId: `0x${string}`;
-  label: string;
+  labelKey: string;
   primaryTab: "open" | "space";
 }>;

@@ -6,10 +6,8 @@ import { bscChain } from "../config/chains";
 import { contracts } from "../config/contracts";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useSoundEffects } from "../hooks/useSoundEffects";
+import { useI18n } from "../i18n/LanguageProvider";
 import { formatPercent, formatToken } from "../lib/format";
-
-const shareTitle = "分紅銀行邀請";
-const shareText = "用我的邀請鏈接一起加入。";
 const qrExportSize = 768;
 const qrExportPadding = 44;
 const qrExportRadius = 58;
@@ -41,6 +39,7 @@ function drawRoundedRect(
 export function ReferralPage() {
   const access = useDappAccess();
   const sound = useSoundEffects();
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [shared, setShared] = useState(false);
@@ -59,7 +58,7 @@ export function ReferralPage() {
 
   const referralLink = access.activeAddress ? `${window.location.origin}/play?ref=${access.activeAddress}` : undefined;
   const inviteeCount = access.activeAddress ? referralStats.data?.[1]?.toString() || "0" : "--";
-  const cumulativeRewards = access.activeAddress ? `${formatToken(referralStats.data?.[2])} 分紅銀行` : "--";
+  const cumulativeRewards = access.activeAddress ? `${formatToken(referralStats.data?.[2])} ${t("common.tokenName")}` : "--";
 
   function flashStatus(setter: (value: boolean) => void) {
     setter(true);
@@ -128,8 +127,8 @@ export function ReferralPage() {
     if (!referralLink) return;
 
     const shareData = {
-      title: shareTitle,
-      text: shareText,
+      title: t("referral.shareTitle"),
+      text: t("referral.shareText"),
       url: referralLink,
     };
 
@@ -167,7 +166,7 @@ export function ReferralPage() {
     <div className="vault-page-stack">
       <section className="section-card referral-link-card">
         <div className="referral-link-head">
-          <h2>邀請鏈接</h2>
+          <h2>{t("referral.linkTitle")}</h2>
         </div>
 
         <div className="referral-link-layout">
@@ -175,13 +174,13 @@ export function ReferralPage() {
             <p className="address-line">{referralLink ?? "--"}</p>
             <div className="copy-row referral-action-row">
               <button type="button" className="primary-button" onClick={() => void copyLink()}>
-                {!access.activeAddress ? "连接钱包" : copied ? "已复制" : "复制链接"}
+                {!access.activeAddress ? t("common.connectWalletShort") : copied ? t("referral.linkCopied") : t("referral.copyLink")}
               </button>
               <button type="button" className="secondary-button" onClick={() => void saveQrCode()}>
-                {!access.activeAddress ? "连接钱包" : saved ? "已保存" : "保存二维码"}
+                {!access.activeAddress ? t("common.connectWalletShort") : saved ? t("referral.qrSaved") : t("referral.saveQr")}
               </button>
               <button type="button" className="ghost-button" onClick={() => void shareQrCode()}>
-                {!access.activeAddress ? "连接钱包" : shared ? "已转发" : "转发"}
+                {!access.activeAddress ? t("common.connectWalletShort") : shared ? t("referral.shared") : t("referral.share")}
               </button>
             </div>
           </div>
@@ -191,15 +190,15 @@ export function ReferralPage() {
 
         <div className="referral-link-stats">
           <div className="referral-stat-chip">
-            <span>固定返佣</span>
+            <span>{t("referral.fixedCommission")}</span>
             <strong>{formatPercent(20)}</strong>
           </div>
           <div className="referral-stat-chip">
-            <span>绑定用户</span>
+            <span>{t("referral.boundUsers")}</span>
             <strong>{inviteeCount}</strong>
           </div>
           <div className="referral-stat-chip">
-            <span>累计奖励</span>
+            <span>{t("referral.totalRewards")}</span>
             <strong>{cumulativeRewards}</strong>
           </div>
         </div>

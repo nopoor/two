@@ -5,11 +5,13 @@ import { contracts } from "../config/contracts";
 import { bscChain } from "../config/chains";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useSoundEffects } from "../hooks/useSoundEffects";
+import { useI18n } from "../i18n/LanguageProvider";
 import { formatToken } from "../lib/format";
 
 export function HomePage() {
   const access = useDappAccess();
   const sound = useSoundEffects();
+  const { t } = useI18n();
 
   const flapBalance = useReadContract({
     address: contracts.flapToken,
@@ -35,15 +37,15 @@ export function HomePage() {
 
   return (
     <div className="vault-page-stack">
-      <SectionCard title="資產" description={access.isConnected ? undefined : "連接後查看。"}>
+      <SectionCard title={t("home.assetTitle")} description={access.isConnected ? undefined : t("common.connectToView")}>
         <div className="wallet-balance-card">
           <div className="balance-stat-list">
             <div>
-              <span>分紅銀行</span>
-              <strong>{access.activeAddress ? formatToken(flapBalance.data) : "--"} 代幣</strong>
+              <span>{t("home.assetToken")}</span>
+              <strong>{access.activeAddress ? formatToken(flapBalance.data) : "--"} {t("common.tokenName")}</strong>
             </div>
             <div>
-              <span>NFT 持有</span>
+              <span>{t("home.assetNftHoldings")}</span>
               <strong>{access.activeAddress ? nftBalance.data?.toString() || "0" : "--"}</strong>
             </div>
           </div>
@@ -56,7 +58,7 @@ export function HomePage() {
                 void access.requestConnect();
               }}
             >
-              立即連接錢包查看
+              {t("home.connectToViewCta")}
             </button>
           ) : null}
         </div>
