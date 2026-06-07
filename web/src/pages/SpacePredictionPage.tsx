@@ -318,7 +318,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         chainId: bscChain.id,
         abi: erc20Abi,
         functionName: "approve",
-        args: [contracts.bankrollVault, maxAllowance],
+        args: [contracts.bankrollVault, wagerPreview],
       });
 
       tx.setHashAndSending(hash);
