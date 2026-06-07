@@ -16,7 +16,6 @@ import { useI18n } from "../i18n/LanguageProvider";
 import { shortAddress } from "../lib/format";
 import { coinFlipGameId } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
-const maxAllowance = (2n ** 256n) - 1n;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
 
@@ -304,10 +303,12 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   }, [resolvedRound, sound]);
 
   async function approveToken() {
-    if (!contracts.flapToken || !contracts.bankrollVault) {
+    if (!contracts.flapToken || !contracts.bankrollVault || !wagerPreview) {
       tx.setError(t("space.contractMissing"));
       return;
     }
+
+    const approvalAmount = wagerPreview;
 
     setActionMode("approve");
     tx.setAwaitingSignature();
@@ -318,7 +319,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         chainId: bscChain.id,
         abi: erc20Abi,
         functionName: "approve",
-        args: [contracts.bankrollVault, wagerPreview],
+        args: [contracts.bankrollVault, approvalAmount],
       });
 
       tx.setHashAndSending(hash);
