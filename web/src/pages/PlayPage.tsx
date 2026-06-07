@@ -17,7 +17,6 @@ import { coinFlipGameId, mysteryBoxGameId, type PublicGameMode } from "../lib/ga
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
 
-const maxAllowance = (2n ** 256n) - 1n;
 const recentLogWindow = 40_000n;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
@@ -656,10 +655,11 @@ export function PlayPage() {
   }, [access.activeAddress, publicClient]);
 
   async function approveToken() {
-    if (!contracts.flapToken || !contracts.bankrollVault) {
+    if (!contracts.flapToken || !contracts.bankrollVault || !wagerPreview) {
       tx.setError(t("play.contractMissing"));
       return;
     }
+    const approvalAmount = wagerPreview;
 
     setActionMode("approve");
     tx.setAwaitingSignature();
@@ -670,7 +670,7 @@ export function PlayPage() {
         chainId: bscChain.id,
         abi: erc20Abi,
         functionName: "approve",
-        args: [contracts.bankrollVault, wagerPreview],
+        args: [contracts.bankrollVault, approvalAmount],
       });
 
       tx.setHashAndSending(hash);
