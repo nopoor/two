@@ -19,6 +19,7 @@ import { coinFlipGameId, mysteryBoxGameId, type PublicGameMode } from "../lib/ga
 import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pendingRound";
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const recentRecoveryWindow = 2_000n;
 const settlementPollChunkSize = 250n;
@@ -258,10 +259,11 @@ export function PlayPage() {
   const livePoolLabel = t("play.livePoolLabel");
   const boxNavItems = getBoxNavItems(t);
   const spaceNavItems = getSpaceNavItems(t);
-  const boxTiers = getBoxTiers(t);
-  const tierById = Object.fromEntries(
-  boxTiers.map((tier) => [tier.id, tier])
-  ) as Record<BoxTier["id"], BoxTier>;
+  const boxTiers = useMemo(() => getBoxTiers(t), [t]);
+  const tierById = useMemo(
+    () => Object.fromEntries(boxTiers.map((tier) => [tier.id, tier])) as Record<BoxTier["id"], BoxTier>,
+    [boxTiers]
+  );
 
   const normalizedWager = normalizeWagerUnits(wagerUnits);
   const wagerPreview = normalizedWager > 0 ? parseEther(String(normalizedWager * 1000)) : undefined;
