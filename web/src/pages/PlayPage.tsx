@@ -19,7 +19,10 @@ import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pe
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
 
-const recentLogWindow = 40_000n;
+const recentFeedWindow = 2_000n;
+const recentRecoveryWindow = 2_000n;
+const settlementPollChunkSize = 250n;
+const staleRoundTtlMs = 2 * 60 * 1000;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
 
@@ -378,6 +381,14 @@ export function PlayPage() {
     ? t("play.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
 
+  const hasStalePendingRound =
+    trackedBetId !== undefined
+    && !hasPendingBet
+    && resolvedRound === undefined
+    && refundedBetId === undefined
+    && tx.phase !== "sending"
+    && tx.phase !== "confirming";
+
   function handleWagerInputChange(value: string) {
     const digitsOnly = value.replace(/[^\d]/g, "").slice(0, 2);
     setWagerUnits(digitsOnly);
@@ -385,6 +396,16 @@ export function PlayPage() {
 
   function handleWagerInputBlur() {
     setWagerUnits(String(normalizedWager || 1));
+  }
+
+  function clearStalePendingRound() {
+    if (access.activeAddress) {
+      clearPendingRound(access.activeAddress, "mystery-box");
+    }
+    setTrackedBetId(undefined);
+    setTrackedFromBlock(undefined);
+    setResolvedRound(undefined);
+    setRefundedBetId(undefined);
   }
 
   const shareLink = typeof window !== "undefined" && access.activeAddress
@@ -411,6 +432,30 @@ export function PlayPage() {
     const timer = window.setTimeout(() => setCopiedShareLink(false), 1800);
     return () => window.clearTimeout(timer);
   }, [copiedShareLink]);
+
+  useEffect(() => {
+    if (!access.activeAddress || !hasStalePendingRound) return;
+
+    const stored = readPendingRound(access.activeAddress, "mystery-box");
+    if (!stored) return;
+
+    const clearRound = () => {
+      clearPendingRound(access.activeAddress!, "mystery-box");
+      setTrackedBetId(undefined);
+      setTrackedFromBlock(undefined);
+      setResolvedRound(undefined);
+      setRefundedBetId(undefined);
+    };
+
+    const ageMs = Date.now() - stored.createdAt;
+    if (ageMs >= staleRoundTtlMs) {
+      clearRound();
+      return;
+    }
+
+    const timer = window.setTimeout(clearRound, staleRoundTtlMs - ageMs);
+    return () => window.clearTimeout(timer);
+  }, [access.activeAddress, hasStalePendingRound]);
 
   useEffect(() => {
     if (actionMode !== "bet" || tx.phase !== "success") return;
@@ -486,17 +531,23 @@ export function PlayPage() {
         if (cancelled) return;
 
         const storedFromBlock = stored ? BigInt(stored.fromBlock) : undefined;
-        const fallbackFromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
+        const fallbackFromBlock = latestBlock > recentRecoveryWindow ? latestBlock - recentRecoveryWindow : 0n;
 
         setTrackedBetId(pendingBetId.data);
         setTrackedFromBlock(storedFromBlock ?? fallbackFromBlock);
         return;
-      }
+        }
 
-      if (!stored) return;
+        if (!stored) return;
 
-      setTrackedBetId(BigInt(stored.betId));
-      setTrackedFromBlock(BigInt(stored.fromBlock));
+        const latestBlock = await client.getBlockNumber();
+        if (cancelled) return;
+
+        const storedFromBlock = BigInt(stored.fromBlock);
+        const minFromBlock = latestBlock > recentRecoveryWindow ? latestBlock - recentRecoveryWindow : 0n;
+
+        setTrackedBetId(BigInt(stored.betId));
+        setTrackedFromBlock(storedFromBlock > minFromBlock ? storedFromBlock : minFromBlock);
     }
 
     void recoverPendingRound();
@@ -514,16 +565,27 @@ export function PlayPage() {
     const client = publicClient;
     const gameManagerAddress = contracts.gameManager;
     let cancelled = false;
+    let nextFromBlock = trackedFromBlock;
 
     const pollSettlement = async () => {
       try {
+        const latestBlock = await client.getBlockNumber();
+        if (cancelled || latestBlock < nextFromBlock) return;
+
+        const toBlock =
+          nextFromBlock + settlementPollChunkSize < latestBlock
+            ? nextFromBlock + settlementPollChunkSize
+            : latestBlock;
+
         const logs = await client.getLogs({
           address: gameManagerAddress,
           event: betSettledEvent,
           args: { betId: trackedBetId },
-          fromBlock: trackedFromBlock,
-          toBlock: "latest",
+          fromBlock: nextFromBlock,
+          toBlock,
         });
+
+        nextFromBlock = toBlock + 1n;
 
         if (cancelled) return;
 
@@ -635,7 +697,7 @@ export function PlayPage() {
     async function loadRecentActivity() {
       try {
         const latestBlock = await client.getBlockNumber();
-        const fromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
+        const fromBlock = latestBlock > recentFeedWindow ? latestBlock - recentFeedWindow : 0n;
         const logs = await client.getLogs({
           address: contracts.gameManager,
           event: betSettledEvent,
@@ -693,7 +755,7 @@ export function PlayPage() {
     async function loadRecentSpaceActivity() {
       try {
         const latestBlock = await client.getBlockNumber();
-        const fromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
+        const fromBlock = latestBlock > recentFeedWindow ? latestBlock - recentFeedWindow : 0n;
         const logs = await client.getLogs({
           address: contracts.gameManager,
           event: betSettledEvent,
@@ -1006,7 +1068,18 @@ export function PlayPage() {
                 <p className="capsule-action-hint">{actionHint}</p>
 
                 <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
+                 
+                {hasStalePendingRound ? (
+                  <div className="status-banner status-banner-warning">
+                    <strong>状态同步中断</strong>
+                    <span>链上已无待开奖注单，但前端仍保留了上一局状态。可清除本地状态后继续。</span>
+                    <button type="button" className="ghost-button" onClick={clearStalePendingRound}>
+                      清除卡住状态
+                    </button>
+                  </div>
+                ) : null}
 
+    
                 {refundedBetId !== undefined ? (
                   <div className="status-banner status-banner-warning">
                     <strong>{t("common.roundRefunded")}</strong>
