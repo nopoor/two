@@ -668,8 +668,9 @@ export function PlayPage() {
 
         setRecentDiscoveries(nextRecent);
 
-        if (access.activeAddress) {
-          setMyDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === access.activeAddress.toLowerCase()));
+        const activeAddress = access.activeAddress;
+        if (activeAddress) {
+          setMyDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === activeAddress.toLowerCase()));
         }
       } catch (error) {
         console.warn("Failed to load mystery box feed", error);
@@ -738,8 +739,9 @@ export function PlayPage() {
 
         setSpaceDiscoveries(nextRecent);
 
-        if (access.activeAddress) {
-          setMySpaceDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === access.activeAddress.toLowerCase()));
+        const activeAddress = access.activeAddress;
+        if (activeAddress) {
+          setMySpaceDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === activeAddress.toLowerCase()));
         }
       } catch (error) {
         console.warn("Failed to load space prediction feed", error);
