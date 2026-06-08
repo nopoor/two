@@ -280,13 +280,14 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   useEffect(() => {
     if (!publicClient || !access.activeAddress || resolvedRound) return;
     if (trackedBetId !== undefined) return;
-
+    
+    const client = publicClient;
     const stored = readPendingRound(access.activeAddress, "coin-flip");
     let cancelled = false;
 
     async function recoverPendingRound() {
       if (pendingBetId.data && pendingBetId.data !== 0n) {
-        const latestBlock = await publicClient.getBlockNumber();
+        const latestBlock = await client.getBlockNumber();
         if (cancelled) return;
 
         const storedFromBlock = stored ? BigInt(stored.fromBlock) : undefined;
