@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { decodeAbiParameters, encodeAbiParameters, formatEther, parseAbiItem, parseEther } from "viem";
+import { decodeAbiParameters, decodeEventLog, encodeAbiParameters, formatEther, parseAbiItem, parseEther } from "viem";
+import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pendingRound";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { TxStatusBanner } from "../components/TxStatusBanner";
 import { erc20Abi } from "../abi/common";
@@ -16,11 +17,16 @@ import { useI18n } from "../i18n/LanguageProvider";
 import { shortAddress } from "../lib/format";
 import { coinFlipGameId } from "../lib/gameCatalog";
 import { zeroAddress } from "../lib/referral";
+const recentLogWindow = 40_000n;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
 
 const betSettledEvent = parseAbiItem(
   "event BetSettled(uint256 indexed betId, uint256 indexed requestId, bytes32 indexed gameId, address player, bool won, uint256 grossProfit, uint256 playerPayout, uint256 burnAmount, uint256 incomeAmount, uint256 referralAmount, bytes resultData)"
+);
+
+const betPlacedEvent = parseAbiItem(
+  "event BetPlaced(uint256 indexed betId, uint256 indexed requestId, bytes32 indexed gameId, address player, uint256 wager, uint256 maxProfit, address referrer)"
 );
 
 type SpaceRound = {
@@ -196,14 +202,101 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
   useEffect(() => {
     if (actionMode !== "bet" || tx.phase !== "success") return;
-    if (tx.receipt?.blockNumber) {
-      setTrackedFromBlock(tx.receipt.blockNumber);
+    if (!tx.receipt?.blockNumber || !access.activeAddress) return;
+
+    const fromBlock = tx.receipt.blockNumber;
+    setTrackedFromBlock(fromBlock);
+
+    let placedBetId: bigint | undefined;
+
+    for (const log of tx.receipt.logs) {
+      try {
+        const decoded = decodeEventLog({
+          abi: [betPlacedEvent],
+          data: log.data,
+          topics: log.topics,
+        });
+
+        if (
+          decoded.eventName === "BetPlaced"
+          && decoded.args.gameId === coinFlipGameId
+          && decoded.args.player
+          && decoded.args.player.toLowerCase() === access.activeAddress.toLowerCase()
+        ) {
+          placedBetId = decoded.args.betId;
+        }
+      } catch {
+        continue;
+      }
     }
+
+    if (placedBetId !== undefined) {
+      setTrackedBetId(placedBetId);
+      setRefundedBetId(undefined);
+
+      savePendingRound({
+        wallet: access.activeAddress as `0x${string}`,
+        game: "coin-flip",
+        betId: placedBetId.toString(),
+        fromBlock: fromBlock.toString(),
+        txHash: tx.hash,
+        createdAt: Date.now(),
+        guessUp,
+       });
+
+      return;
+    }
+
     if (pendingBetId.data && pendingBetId.data !== 0n) {
       setTrackedBetId(pendingBetId.data);
       setRefundedBetId(undefined);
+
+      savePendingRound({
+        wallet: access.activeAddress as `0x${string}`,
+        game: "coin-flip",
+        betId: pendingBetId.data.toString(),
+        fromBlock: fromBlock.toString(),
+        txHash: tx.hash,
+        createdAt: Date.now(),
+        guessUp,
+      });
     }
-  }, [actionMode, pendingBetId.data, tx.phase, tx.receipt?.blockNumber]);
+  }, [access.activeAddress, actionMode, guessUp, pendingBetId.data, tx.hash, tx.phase, tx.receipt]);
+
+  useEffect(() => {
+  if (!publicClient || !access.activeAddress || resolvedRound) return;
+  if (trackedBetId !== undefined) return;
+
+  const stored = readPendingRound(access.activeAddress, "coin-flip");
+  let cancelled = false;
+
+  async function recoverPendingRound() {
+    if (pendingBetId.data && pendingBetId.data !== 0n) {
+      const latestBlock = await publicClient.getBlockNumber();
+      if (cancelled) return;
+
+      const storedFromBlock = stored ? BigInt(stored.fromBlock) : undefined;
+      const fallbackFromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
+
+      setTrackedBetId(pendingBetId.data);
+      setTrackedFromBlock(storedFromBlock ?? fallbackFromBlock);
+      setSubmittedGuessUp(stored?.guessUp);
+      return;
+    }
+
+    if (!stored) return;
+
+    setTrackedBetId(BigInt(stored.betId));
+    setTrackedFromBlock(BigInt(stored.fromBlock));
+    setSubmittedGuessUp(stored.guessUp);
+  }
+
+  void recoverPendingRound();
+
+  return () => {
+    cancelled = true;
+  };
+}, [access.activeAddress, pendingBetId.data, publicClient, resolvedRound, trackedBetId]);
 
   useEffect(() => {
     if (!resolvedRound) return;
@@ -253,6 +346,10 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             setRefundedBetId(currentTrackedBetId);
             setRevealPhase("idle");
             setSubmittedGuessUp(undefined);
+
+            if (access.activeAddress) {
+             clearPendingRound(access.activeAddress, "coin-flip");
+            }
           }
           return;
         }
@@ -281,6 +378,10 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         setTrackedBetId(undefined);
         setTrackedFromBlock(undefined);
         setRefundedBetId(undefined);
+
+        if (access.activeAddress) {
+          clearPendingRound(access.activeAddress, "coin-flip");
+        }
       } catch (error) {
         console.warn("Failed to poll coin flip settlement", error);
       }
@@ -295,7 +396,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [publicClient, resolvedRound, trackedBetId, trackedFromBlock]);
+  }, [access.activeAddress, publicClient, resolvedRound, trackedBetId, trackedFromBlock]);
 
   useEffect(() => {
     if (!resolvedRound) return;
