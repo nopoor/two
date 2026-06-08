@@ -22,6 +22,8 @@ import { SpacePredictionPanel } from "./SpacePredictionPage";
 const recentFeedWindow = 2_000n;
 const recentRecoveryWindow = 2_000n;
 const settlementPollChunkSize = 250n;
+const recentFeedChunkSize = 500n;
+const minRecentFeedChunkSize = 50n;
 const staleRoundTtlMs = 2 * 60 * 1000;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
@@ -208,6 +210,46 @@ function toDiscoveryItem(round: ResolvedRound): DiscoveryFeedItem {
 function prependUnique(items: DiscoveryFeedItem[], nextItem: DiscoveryFeedItem, limit: number) {
   const deduped = [nextItem, ...items.filter((item) => item.key !== nextItem.key)];
   return deduped.slice(0, limit);
+}
+
+async function loadLogsWithAdaptiveChunks<T>({
+  fromBlock,
+  toBlock,
+  fetchChunk,
+}: {
+  fromBlock: bigint;
+  toBlock: bigint;
+  fetchChunk: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>;
+}) {
+  const logs: T[] = [];
+  let cursor = fromBlock;
+  let chunkSize = recentFeedChunkSize;
+
+  while (cursor <= toBlock) {
+    const chunkEnd = cursor + chunkSize - 1n < toBlock
+      ? cursor + chunkSize - 1n
+      : toBlock;
+
+    try {
+      const nextLogs = await fetchChunk(cursor, chunkEnd);
+      logs.push(...nextLogs);
+      cursor = chunkEnd + 1n;
+
+      if (chunkSize < recentFeedChunkSize) {
+        chunkSize = recentFeedChunkSize;
+      }
+    } catch (error) {
+      if (chunkSize <= minRecentFeedChunkSize) {
+        throw error;
+      }
+
+      chunkSize = chunkSize / 2n >= minRecentFeedChunkSize
+        ? chunkSize / 2n
+        : minRecentFeedChunkSize;
+    }
+  }
+
+  return logs;
 }
 
 function decodeMysteryBoxResult(resultData: `0x${string}`, tiers: BoxTier[]) {
@@ -698,12 +740,17 @@ export function PlayPage() {
       try {
         const latestBlock = await client.getBlockNumber();
         const fromBlock = latestBlock > recentFeedWindow ? latestBlock - recentFeedWindow : 0n;
-        const logs = await client.getLogs({
-          address: contracts.gameManager,
-          event: betSettledEvent,
-          args: { gameId: mysteryBoxGameId },
+
+        const logs = await loadLogsWithAdaptiveChunks({
           fromBlock,
-          toBlock: "latest",
+          toBlock: latestBlock,
+          fetchChunk: (chunkFromBlock, chunkToBlock) => client.getLogs({
+            address: contracts.gameManager,
+            event: betSettledEvent,
+            args: { gameId: mysteryBoxGameId },
+            fromBlock: chunkFromBlock,
+            toBlock: chunkToBlock,
+          }),
         });
 
         if (cancelled) return;
@@ -756,12 +803,17 @@ export function PlayPage() {
       try {
         const latestBlock = await client.getBlockNumber();
         const fromBlock = latestBlock > recentFeedWindow ? latestBlock - recentFeedWindow : 0n;
-        const logs = await client.getLogs({
-          address: contracts.gameManager,
-          event: betSettledEvent,
-          args: { gameId: coinFlipGameId },
+
+        const logs = await loadLogsWithAdaptiveChunks({
           fromBlock,
-          toBlock: "latest",
+          toBlock: latestBlock,
+          fetchChunk: (chunkFromBlock, chunkToBlock) => client.getLogs({
+            address: contracts.gameManager,
+            event: betSettledEvent,
+            args: { gameId: coinFlipGameId },
+            fromBlock: chunkFromBlock,
+            toBlock: chunkToBlock,
+          }),
         });
 
         if (cancelled) return;
