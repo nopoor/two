@@ -1,3 +1,4 @@
+import { fetchFeed } from "../lib/feedApi";
 import { useEffect, useRef, useState } from "react";
 import { decodeAbiParameters, decodeEventLog, formatEther, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
@@ -19,11 +20,8 @@ import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pe
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
 
-const recentFeedWindow = 2_000n;
 const recentRecoveryWindow = 2_000n;
 const settlementPollChunkSize = 250n;
-const recentFeedChunkSize = 500n;
-const minRecentFeedChunkSize = 50n;
 const staleRoundTtlMs = 2 * 60 * 1000;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
@@ -212,45 +210,6 @@ function prependUnique(items: DiscoveryFeedItem[], nextItem: DiscoveryFeedItem, 
   return deduped.slice(0, limit);
 }
 
-async function loadLogsWithAdaptiveChunks<T>({
-  fromBlock,
-  toBlock,
-  fetchChunk,
-}: {
-  fromBlock: bigint;
-  toBlock: bigint;
-  fetchChunk: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>;
-}) {
-  const logs: T[] = [];
-  let cursor = fromBlock;
-  let chunkSize = recentFeedChunkSize;
-
-  while (cursor <= toBlock) {
-    const chunkEnd = cursor + chunkSize - 1n < toBlock
-      ? cursor + chunkSize - 1n
-      : toBlock;
-
-    try {
-      const nextLogs = await fetchChunk(cursor, chunkEnd);
-      logs.push(...nextLogs);
-      cursor = chunkEnd + 1n;
-
-      if (chunkSize < recentFeedChunkSize) {
-        chunkSize = recentFeedChunkSize;
-      }
-    } catch (error) {
-      if (chunkSize <= minRecentFeedChunkSize) {
-        throw error;
-      }
-
-      chunkSize = chunkSize / 2n >= minRecentFeedChunkSize
-        ? chunkSize / 2n
-        : minRecentFeedChunkSize;
-    }
-  }
-
-  return logs;
-}
 
 function decodeMysteryBoxResult(resultData: `0x${string}`, tiers: BoxTier[]) {
   const [tierIndex, outcome, grossMultiplierBps] = decodeAbiParameters(
@@ -300,6 +259,9 @@ export function PlayPage() {
   const boxNavItems = getBoxNavItems(t);
   const spaceNavItems = getSpaceNavItems(t);
   const boxTiers = getBoxTiers(t);
+  const tierById = Object.fromEntries(
+  boxTiers.map((tier) => [tier.id, tier])
+  ) as Record<BoxTier["id"], BoxTier>;
 
   const normalizedWager = normalizeWagerUnits(wagerUnits);
   const wagerPreview = normalizedWager > 0 ? parseEther(String(normalizedWager * 1000)) : undefined;
@@ -731,143 +693,64 @@ export function PlayPage() {
   }, [isResolvingRound, sound]);
 
   useEffect(() => {
-    if (!publicClient || !contracts.gameManager) return;
-
-    const client = publicClient;
     let cancelled = false;
 
-    async function loadRecentActivity() {
+    async function loadFeedSnapshot() {
       try {
-        const latestBlock = await client.getBlockNumber();
-        const fromBlock = latestBlock > recentFeedWindow ? latestBlock - recentFeedWindow : 0n;
+        if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+          return;
+        }
 
-        const logs = await loadLogsWithAdaptiveChunks({
-          fromBlock,
-          toBlock: latestBlock,
-          fetchChunk: (chunkFromBlock, chunkToBlock) => client.getLogs({
-            address: contracts.gameManager,
-            event: betSettledEvent,
-            args: { gameId: mysteryBoxGameId },
-            fromBlock: chunkFromBlock,
-            toBlock: chunkToBlock,
-          }),
-        });
-
+        const data = await fetchFeed(8);
         if (cancelled) return;
 
-        const nextRecent = logs
-          .slice(-8)
-          .reverse()
-          .flatMap((log) => {
-            if (!log.args.resultData || log.args.playerPayout === undefined || log.args.player === undefined || log.args.won === undefined) {
-              return [];
-            }
+        const nextRecent = data.box.map((item) => ({
+          key: item.key,
+          betId: BigInt(item.betId),
+          player: item.player,
+          playerPayout: BigInt(item.playerPayout),
+          outcome: item.outcome,
+          won: item.won,
+          tier: tierById[item.tierId] ?? boxTiers[boxTiers.length - 1],
+        }));
 
-            const decoded = decodeMysteryBoxResult(log.args.resultData, boxTiers);
-            return [{
-              key: log.args.betId!.toString(),
-              betId: log.args.betId!,
-              player: log.args.player,
-              playerPayout: log.args.playerPayout,
-              outcome: decoded.outcome,
-              won: log.args.won,
-              tier: decoded.tier,
-            } satisfies DiscoveryFeedItem];
-          });
+        const nextSpace = data.space.map((item) => ({
+          key: item.key,
+          betId: BigInt(item.betId),
+          player: item.player,
+          playerPayout: BigInt(item.playerPayout),
+          won: item.won,
+          guessUp: item.guessUp,
+          landedUp: item.landedUp,
+        }));
 
         setRecentDiscoveries(nextRecent);
+        setSpaceDiscoveries(nextSpace);
 
-        const activeAddress = access.activeAddress;
+        const activeAddress = access.activeAddress?.toLowerCase();
         if (activeAddress) {
-          setMyDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === activeAddress.toLowerCase()));
+          setMyDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === activeAddress));
+          setMySpaceDiscoveries(nextSpace.filter((item) => item.player.toLowerCase() === activeAddress));
+        } else {
+          setMyDiscoveries([]);
+          setMySpaceDiscoveries([]);
         }
       } catch (error) {
-        console.warn("Failed to load mystery box feed", error);
+        console.warn("Failed to load feed API", error);
       }
     }
 
-    void loadRecentActivity();
+    void loadFeedSnapshot();
+
+    const intervalId = window.setInterval(() => {
+      void loadFeedSnapshot();
+    }, 15000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
-  }, [access.activeAddress, boxTiers, publicClient]);
-
-  useEffect(() => {
-    if (!publicClient || !contracts.gameManager) return;
-
-    const client = publicClient;
-    let cancelled = false;
-
-    async function loadRecentSpaceActivity() {
-      try {
-        const latestBlock = await client.getBlockNumber();
-        const fromBlock = latestBlock > recentFeedWindow ? latestBlock - recentFeedWindow : 0n;
-
-        const logs = await loadLogsWithAdaptiveChunks({
-          fromBlock,
-          toBlock: latestBlock,
-          fetchChunk: (chunkFromBlock, chunkToBlock) => client.getLogs({
-            address: contracts.gameManager,
-            event: betSettledEvent,
-            args: { gameId: coinFlipGameId },
-            fromBlock: chunkFromBlock,
-            toBlock: chunkToBlock,
-          }),
-        });
-
-        if (cancelled) return;
-
-        const nextRecent = logs
-          .slice(-8)
-          .reverse()
-          .flatMap((log) => {
-            if (
-              !log.args.resultData
-              || log.args.playerPayout === undefined
-              || log.args.player === undefined
-              || log.args.won === undefined
-              || log.args.betId === undefined
-            ) {
-              return [];
-            }
-
-            const [guessUp, landedUp] = decodeAbiParameters(
-              [
-                { name: "guessHeads", type: "bool" },
-                { name: "landedHeads", type: "bool" },
-              ],
-              log.args.resultData
-            );
-
-            return [{
-              key: log.args.betId.toString(),
-              betId: log.args.betId,
-              player: log.args.player,
-              playerPayout: log.args.playerPayout,
-              won: log.args.won,
-              guessUp,
-              landedUp,
-            } satisfies SpaceFeedItem];
-          });
-
-        setSpaceDiscoveries(nextRecent);
-
-        const activeAddress = access.activeAddress;
-        if (activeAddress) {
-          setMySpaceDiscoveries(nextRecent.filter((item) => item.player.toLowerCase() === activeAddress.toLowerCase()));
-        }
-      } catch (error) {
-        console.warn("Failed to load space prediction feed", error);
-      }
-    }
-
-    void loadRecentSpaceActivity();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [access.activeAddress, publicClient]);
+  }, [access.activeAddress, boxTiers, tierById]);
 
   async function approveToken() {
     if (!contracts.flapToken || !contracts.bankrollVault || !wagerPreview) {
