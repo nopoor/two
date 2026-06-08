@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { decodeAbiParameters, decodeEventLog, encodeAbiParameters, formatEther, parseAbiItem, parseEther } from "viem";
-import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pendingRound";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
-import { TxStatusBanner } from "../components/TxStatusBanner";
+
 import { erc20Abi } from "../abi/common";
 import { gameManagerAbi, referralRegistryAbi } from "../abi/gamefi";
-import { contracts } from "../config/contracts";
+import { TxStatusBanner } from "../components/TxStatusBanner";
 import { bscChain } from "../config/chains";
+import { contracts } from "../config/contracts";
 import { useDappAccess } from "../hooks/useDappAccess";
 import { useGameAvailability } from "../hooks/useGameAvailability";
 import { useReferralLanding } from "../hooks/useReferralLanding";
@@ -16,7 +16,9 @@ import { useTxFlow } from "../hooks/useTxFlow";
 import { useI18n } from "../i18n/LanguageProvider";
 import { shortAddress } from "../lib/format";
 import { coinFlipGameId } from "../lib/gameCatalog";
+import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pendingRound";
 import { zeroAddress } from "../lib/referral";
+
 const recentLogWindow = 40_000n;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
@@ -77,6 +79,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const referralLanding = useReferralLanding(access.address);
   const publicClient = usePublicClient({ chainId: bscChain.id });
   const { writeContractAsync } = useWriteContract();
+
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [wagerUnits, setWagerUnits] = useState("1");
   const [guessUp, setGuessUp] = useState(true);
@@ -134,23 +137,30 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const displayedGuessUp = resolvedRound?.guessUp ?? submittedGuessUp ?? guessUp;
   const maxPayout = wagerPreview ? (wagerPreview * 194n) / 100n : 0n;
   const tokenDisplayName = t("common.tokenName");
+
   const isResolvingRound =
     actionMode === "bet"
-    && (tx.phase === "awaiting-signature"
+    && (
+      tx.phase === "awaiting-signature"
       || tx.phase === "sending"
       || tx.phase === "confirming"
-      || (trackedBetId !== undefined && resolvedRound === undefined));
+      || (trackedBetId !== undefined && resolvedRound === undefined)
+    );
+
   const showResultCard = resolvedRound !== undefined && revealPhase === "card";
+
   const boardOverlayTitle = isResolvingRound
-      ? t("space.locking")
-      : resolvedRound
-        ? (resolvedRound.landedUp ? t("common.up") : t("common.down"))
-        : (displayedGuessUp ? `${t("common.up")} ROUTE` : `${t("common.down")} ROUTE`);
+    ? t("space.locking")
+    : resolvedRound
+      ? (resolvedRound.landedUp ? t("common.up") : t("common.down"))
+      : (displayedGuessUp ? `${t("common.up")} ROUTE` : `${t("common.down")} ROUTE`);
+
   const boardOverlaySubtitle = isResolvingRound
     ? t("space.waitingStarMap")
     : resolvedRound
       ? (resolvedRound.won ? t("space.hitRoute") : t("space.missedRoute"))
       : (displayedGuessUp ? t("space.guessUp") : t("space.guessDown"));
+
   const boardClassName = [
     "space-ship-board",
     isResolvingRound ? "resolving" : "",
@@ -159,11 +169,14 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
     resolvedRound && revealPhase === "impact" ? "result-impact" : "",
     resolvedRound && revealPhase === "card" ? "result-settled" : "",
   ].filter(Boolean).join(" ");
+
   const shipClassName = [
     "space-ship",
     displayedGuessUp ? "heading-up" : "heading-down",
     isResolvingRound ? "charging" : "",
-    resolvedRound && revealPhase === "impact" ? (resolvedRound.landedUp ? "burst-up" : "burst-down") : "",
+    resolvedRound && revealPhase === "impact"
+      ? (resolvedRound.landedUp ? "burst-up" : "burst-down")
+      : "",
   ].filter(Boolean).join(" ");
 
   const actionConfig =
@@ -187,6 +200,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             disabled: access.getActionConfig(t("game.mode.space"), "").disabled,
             onClick: access.getActionConfig(t("game.mode.space"), "").onClick,
           };
+
   const actionHint = hasReferrerConflict && boundReferrer
     ? t("space.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
@@ -242,7 +256,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         txHash: tx.hash,
         createdAt: Date.now(),
         guessUp,
-       });
+      });
 
       return;
     }
@@ -264,46 +278,48 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   }, [access.activeAddress, actionMode, guessUp, pendingBetId.data, tx.hash, tx.phase, tx.receipt]);
 
   useEffect(() => {
-  if (!publicClient || !access.activeAddress || resolvedRound) return;
-  if (trackedBetId !== undefined) return;
+    if (!publicClient || !access.activeAddress || resolvedRound) return;
+    if (trackedBetId !== undefined) return;
 
-  const stored = readPendingRound(access.activeAddress, "coin-flip");
-  let cancelled = false;
+    const stored = readPendingRound(access.activeAddress, "coin-flip");
+    let cancelled = false;
 
-  async function recoverPendingRound() {
-    if (pendingBetId.data && pendingBetId.data !== 0n) {
-      const latestBlock = await publicClient.getBlockNumber();
-      if (cancelled) return;
+    async function recoverPendingRound() {
+      if (pendingBetId.data && pendingBetId.data !== 0n) {
+        const latestBlock = await publicClient.getBlockNumber();
+        if (cancelled) return;
 
-      const storedFromBlock = stored ? BigInt(stored.fromBlock) : undefined;
-      const fallbackFromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
+        const storedFromBlock = stored ? BigInt(stored.fromBlock) : undefined;
+        const fallbackFromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
 
-      setTrackedBetId(pendingBetId.data);
-      setTrackedFromBlock(storedFromBlock ?? fallbackFromBlock);
-      setSubmittedGuessUp(stored?.guessUp);
-      return;
+        setTrackedBetId(pendingBetId.data);
+        setTrackedFromBlock(storedFromBlock ?? fallbackFromBlock);
+        setSubmittedGuessUp(stored?.guessUp);
+        return;
+      }
+
+      if (!stored) return;
+
+      setTrackedBetId(BigInt(stored.betId));
+      setTrackedFromBlock(BigInt(stored.fromBlock));
+      setSubmittedGuessUp(stored.guessUp);
     }
 
-    if (!stored) return;
+    void recoverPendingRound();
 
-    setTrackedBetId(BigInt(stored.betId));
-    setTrackedFromBlock(BigInt(stored.fromBlock));
-    setSubmittedGuessUp(stored.guessUp);
-  }
-
-  void recoverPendingRound();
-
-  return () => {
-    cancelled = true;
-  };
-}, [access.activeAddress, pendingBetId.data, publicClient, resolvedRound, trackedBetId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [access.activeAddress, pendingBetId.data, publicClient, resolvedRound, trackedBetId]);
 
   useEffect(() => {
     if (!resolvedRound) return;
+
     setRevealPhase("impact");
     const timer = window.setTimeout(() => {
       setRevealPhase("card");
     }, 650);
+
     return () => window.clearTimeout(timer);
   }, [resolvedRound]);
 
@@ -348,14 +364,21 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             setSubmittedGuessUp(undefined);
 
             if (access.activeAddress) {
-             clearPendingRound(access.activeAddress, "coin-flip");
+              clearPendingRound(access.activeAddress, "coin-flip");
             }
           }
+
           return;
         }
 
         const latestLog = logs[logs.length - 1];
-        if (latestLog.args.gameId !== coinFlipGameId || !latestLog.args.resultData || latestLog.args.playerPayout === undefined || latestLog.args.grossProfit === undefined || latestLog.args.won === undefined) {
+        if (
+          latestLog.args.gameId !== coinFlipGameId
+          || !latestLog.args.resultData
+          || latestLog.args.playerPayout === undefined
+          || latestLog.args.grossProfit === undefined
+          || latestLog.args.won === undefined
+        ) {
           return;
         }
 
@@ -470,7 +493,11 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             <div>
               <strong>{t("space.pageTitle")}</strong>
             </div>
-            {showBackLink ? <Link to="/play" className="space-back-link">{t("space.backToLobby")}</Link> : null}
+            {showBackLink ? (
+              <Link to="/play" className="space-back-link">
+                {t("space.backToLobby")}
+              </Link>
+            ) : null}
           </div>
 
           <div className={boardClassName}>
@@ -480,7 +507,11 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
               <div className="space-ship-engine" />
             </div>
             <div className="space-ship-trail" />
-            <div className={`space-board-overlay ${(isResolvingRound || resolvedRound) ? "visible" : ""} ${resolvedRound ? (resolvedRound.won ? "success" : "failure") : ""}`.trim()}>
+            <div
+              className={`space-board-overlay ${(isResolvingRound || resolvedRound) ? "visible" : ""} ${
+                resolvedRound ? (resolvedRound.won ? "success" : "failure") : ""
+              }`.trim()}
+            >
               <span className="space-board-overlay-badge">{boardOverlayTitle}</span>
               <strong>{boardOverlaySubtitle}</strong>
             </div>
@@ -504,7 +535,6 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
               {t("space.guessDown")}
             </button>
           </div>
-
         </div>
 
         <div className="space-control-card">
@@ -515,7 +545,9 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             </div>
             <div>
               <span>{t("space.maxPayout")}</span>
-              <strong>{wagerPreview ? `${formatDisplayToken(maxPayout, numberLocale)} ${tokenDisplayName}` : "--"}</strong>
+              <strong>
+                {wagerPreview ? `${formatDisplayToken(maxPayout, numberLocale)} ${tokenDisplayName}` : "--"}
+              </strong>
             </div>
           </div>
 
@@ -533,6 +565,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
                 </button>
               ))}
             </div>
+
             <div className="wager-input-row">
               <span className="wager-input-label">{t("common.customMultiplier")}</span>
               <label className="wager-input-shell">
@@ -559,8 +592,11 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
           >
             {actionConfig.label}
           </button>
+
           {actionHint ? <p className="space-action-hint">{actionHint}</p> : null}
+
           <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
+
           {refundedBetId !== undefined ? (
             <div className="status-banner status-banner-warning">
               <strong>{t("common.roundRefunded")}</strong>
@@ -581,7 +617,11 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             </div>
             <div>
               <span>{t("common.payout")}</span>
-              <strong>{resolvedRound.won ? `${formatDisplayToken(resolvedRound.playerPayout, numberLocale)} ${tokenDisplayName}` : `0 ${tokenDisplayName}`}</strong>
+              <strong>
+                {resolvedRound.won
+                  ? `${formatDisplayToken(resolvedRound.playerPayout, numberLocale)} ${tokenDisplayName}`
+                  : `0 ${tokenDisplayName}`}
+              </strong>
             </div>
           </div>
         ) : null}
