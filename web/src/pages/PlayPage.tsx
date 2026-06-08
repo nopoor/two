@@ -1,5 +1,5 @@
 import { fetchFeed } from "../lib/feedApi";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { decodeAbiParameters, decodeEventLog, formatEther, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 
@@ -19,7 +19,6 @@ import { coinFlipGameId, mysteryBoxGameId, type PublicGameMode } from "../lib/ga
 import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pendingRound";
 import { zeroAddress } from "../lib/referral";
 import { SpacePredictionPanel } from "./SpacePredictionPage";
-import { useEffect, useMemo, useRef, useState } from "react";
 
 const recentRecoveryWindow = 2_000n;
 const settlementPollChunkSize = 250n;
