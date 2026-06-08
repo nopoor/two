@@ -19,7 +19,9 @@ import { coinFlipGameId } from "../lib/gameCatalog";
 import { clearPendingRound, readPendingRound, savePendingRound } from "../lib/pendingRound";
 import { zeroAddress } from "../lib/referral";
 
-const recentLogWindow = 40_000n;
+const recentRecoveryWindow = 2_000n;
+const settlementPollChunkSize = 250n;
+const staleRoundTtlMs = 2 * 60 * 1000;
 const quickWagerMultipliers = [1, 5, 15];
 const maxWagerMultiplier = 15;
 
@@ -204,6 +206,14 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const actionHint = hasReferrerConflict && boundReferrer
     ? t("space.referrerConflict", { referrer: shortAddress(boundReferrer) })
     : actionConfig.hint;
+  
+  const hasStalePendingRound =
+    trackedBetId !== undefined
+    && !hasPendingBet
+    && resolvedRound === undefined
+    && refundedBetId === undefined
+    && tx.phase !== "sending"
+    && tx.phase !== "confirming";  
 
   function handleWagerInputChange(value: string) {
     const digitsOnly = value.replace(/[^\d]/g, "").slice(0, 2);
@@ -212,6 +222,44 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
   function handleWagerInputBlur() {
     setWagerUnits(String(normalizedWager || 1));
+  }
+  useEffect(() => {
+  const activeAddress = access.activeAddress;
+  if (!activeAddress || !hasStalePendingRound) return;
+
+  const stored = readPendingRound(activeAddress, "coin-flip");
+  if (!stored) return;
+
+  const clearRound = () => {
+    clearPendingRound(activeAddress, "coin-flip");
+    setTrackedBetId(undefined);
+    setTrackedFromBlock(undefined);
+    setResolvedRound(undefined);
+    setRefundedBetId(undefined);
+    setRevealPhase("idle");
+    setSubmittedGuessUp(undefined);
+  };
+
+  const ageMs = Date.now() - stored.createdAt;
+  if (ageMs >= staleRoundTtlMs) {
+    clearRound();
+    return;
+  }
+
+  const timer = window.setTimeout(clearRound, staleRoundTtlMs - ageMs);
+  return () => window.clearTimeout(timer);
+}, [access.activeAddress, hasStalePendingRound]);
+
+  function clearStalePendingRound() {
+  if (access.activeAddress) {
+    clearPendingRound(access.activeAddress, "coin-flip");
+  }
+  setTrackedBetId(undefined);
+  setTrackedFromBlock(undefined);
+  setResolvedRound(undefined);
+  setRefundedBetId(undefined);
+  setRevealPhase("idle");
+  setSubmittedGuessUp(undefined);
   }
 
   useEffect(() => {
@@ -280,7 +328,6 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   useEffect(() => {
     if (!publicClient || !access.activeAddress || resolvedRound) return;
     if (trackedBetId !== undefined) return;
-    
     const client = publicClient;
     const stored = readPendingRound(access.activeAddress, "coin-flip");
     let cancelled = false;
@@ -291,7 +338,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         if (cancelled) return;
 
         const storedFromBlock = stored ? BigInt(stored.fromBlock) : undefined;
-        const fallbackFromBlock = latestBlock > recentLogWindow ? latestBlock - recentLogWindow : 0n;
+        const fallbackFromBlock = latestBlock > recentRecoveryWindow ? latestBlock - recentRecoveryWindow : 0n;
 
         setTrackedBetId(pendingBetId.data);
         setTrackedFromBlock(storedFromBlock ?? fallbackFromBlock);
@@ -301,8 +348,14 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
       if (!stored) return;
 
+      const latestBlock = await client.getBlockNumber();
+      if (cancelled) return;
+
+      const storedFromBlock = BigInt(stored.fromBlock);
+      const minFromBlock = latestBlock > recentRecoveryWindow ? latestBlock - recentRecoveryWindow : 0n;
+
       setTrackedBetId(BigInt(stored.betId));
-      setTrackedFromBlock(BigInt(stored.fromBlock));
+      setTrackedFromBlock(storedFromBlock > minFromBlock ? storedFromBlock : minFromBlock);
       setSubmittedGuessUp(stored.guessUp);
     }
 
@@ -333,16 +386,27 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
     const gameManagerAddress = contracts.gameManager;
     const currentTrackedBetId = trackedBetId;
     let cancelled = false;
+    let nextFromBlock = trackedFromBlock;
 
     async function pollSettlement() {
       try {
+        const latestBlock = await client.getBlockNumber();
+        if (cancelled || latestBlock < nextFromBlock) return;
+
+        const toBlock =
+          nextFromBlock + settlementPollChunkSize < latestBlock
+            ? nextFromBlock + settlementPollChunkSize
+            : latestBlock;
+
         const logs = await client.getLogs({
           address: gameManagerAddress,
           event: betSettledEvent,
           args: { betId: currentTrackedBetId },
-          fromBlock: trackedFromBlock,
-          toBlock: "latest",
+          fromBlock: nextFromBlock,
+          toBlock,
         });
+
+        nextFromBlock = toBlock + 1n;
 
         if (cancelled) return;
 
@@ -597,6 +661,15 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
           {actionHint ? <p className="space-action-hint">{actionHint}</p> : null}
 
           <TxStatusBanner phase={tx.phase} hash={tx.hash} errorMessage={tx.errorMessage} />
+          {hasStalePendingRound ? (
+            <div className="status-banner status-banner-warning">
+              <strong>状态同步中断</strong>
+              <span>链上已无待开奖注单，但前端仍保留了上一局状态。可清除本地状态后继续。</span>
+              <button type="button" className="ghost-button" onClick={clearStalePendingRound}>
+                清除卡住状态
+              </button>
+            </div>
+          ) : null}
 
           {refundedBetId !== undefined ? (
             <div className="status-banner status-banner-warning">
