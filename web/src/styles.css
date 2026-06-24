@@ -646,6 +646,8 @@
   width: 100%;
   max-width: 460px;
   max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: linear-gradient(180deg, #121219 0%, #0b0b10 100%);
   border-top: 2px solid rgba(255, 214, 10, 0.72);
@@ -668,7 +670,10 @@
 }
 
 .capsule-sheet-body {
-  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 16px;
 }
 
