@@ -623,6 +623,8 @@ export function PlayPage() {
             if (access.activeAddress) {
               clearPendingRound(access.activeAddress, "mystery-box");
             }
+            void pendingBetId.refetch();
+            void allowance.refetch();
           }
 
           return;
@@ -659,6 +661,8 @@ export function PlayPage() {
         if (access.activeAddress) {
           clearPendingRound(access.activeAddress, "mystery-box");
         }
+        void pendingBetId.refetch();
+        void allowance.refetch();
       } catch (error) {
         console.warn("Failed to poll mystery box settlement", error);
       }
