@@ -239,6 +239,7 @@ export function PlayPage() {
   const { writeContractAsync } = useWriteContract();
   const lastResolvedBetRef = useRef<bigint | undefined>();
   const lastApprovalHashRef = useRef<`0x${string}` | undefined>();
+  const lastBetHashRef = useRef<`0x${string}` | undefined>();
 
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [activeTab, setActiveTab] = useState<PlayTab>("open");
@@ -476,7 +477,9 @@ export function PlayPage() {
 
   useEffect(() => {
     if (actionMode !== "bet" || tx.phase !== "success") return;
-    if (!tx.receipt?.blockNumber || !access.activeAddress) return;
+    if (!tx.receipt?.blockNumber || !access.activeAddress || !tx.hash) return;
+    if (lastBetHashRef.current === tx.hash) return;
+    lastBetHashRef.current = tx.hash;
 
     const fromBlock = tx.receipt.blockNumber;
     setTrackedFromBlock(fromBlock);
