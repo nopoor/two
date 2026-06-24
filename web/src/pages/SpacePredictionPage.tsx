@@ -82,7 +82,8 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const publicClient = usePublicClient({ chainId: bscChain.id });
   const { writeContractAsync } = useWriteContract();
   const lastApprovalHashRef = useRef<`0x${string}` | undefined>();
-
+  const lastBetHashRef = useRef<`0x${string}` | undefined>();
+  
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [wagerUnits, setWagerUnits] = useState("1");
   const [guessUp, setGuessUp] = useState(true);
@@ -276,7 +277,9 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
 
   useEffect(() => {
     if (actionMode !== "bet" || tx.phase !== "success") return;
-    if (!tx.receipt?.blockNumber || !access.activeAddress) return;
+    if (!tx.receipt?.blockNumber || !access.activeAddress || !tx.hash) return;
+    if (lastBetHashRef.current === tx.hash) return;
+    lastBetHashRef.current = tx.hash;
 
     const fromBlock = tx.receipt.blockNumber;
     setTrackedFromBlock(fromBlock);
