@@ -540,7 +540,7 @@ export function PlayPage() {
   }, [access.activeAddress, actionMode, pendingBetId.data, pendingBetId.refetch, tx.hash, tx.phase, tx.receipt]);
 
   useEffect(() => {
-    if (!publicClient || !access.activeAddress || trackedBetId !== undefined || resolvedRound) return;
+    if (activeMode !== "box" || !publicClient || !access.activeAddress || trackedBetId !== undefined || resolvedRound) return;
 
     const client = publicClient;
     const stored = readPendingRound(access.activeAddress, "mystery-box");
@@ -576,10 +576,10 @@ export function PlayPage() {
     return () => {
       cancelled = true;
     };
-  }, [access.activeAddress, pendingBetId.data, publicClient, resolvedRound, trackedBetId]);
+  }, [access.activeAddress, activeMode, pendingBetId.data, publicClient, resolvedRound, trackedBetId]);
 
   useEffect(() => {
-    if (!publicClient || !contracts.gameManager || trackedBetId === undefined || trackedFromBlock === undefined || resolvedRound) {
+    if (activeMode !== "box" || !publicClient || !contracts.gameManager || trackedBetId === undefined || trackedFromBlock === undefined || resolvedRound) {
       return;
     }
 
@@ -683,7 +683,7 @@ export function PlayPage() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [access.activeAddress, boxTiers, publicClient, resolvedRound, trackedBetId, trackedFromBlock]);
+  }, [access.activeAddress, activeMode, boxTiers, publicClient, resolvedRound, trackedBetId, trackedFromBlock]);
 
   useEffect(() => {
     if (!resolvedRound || lastResolvedBetRef.current === resolvedRound.betId) return;
