@@ -137,7 +137,6 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const hasReferrerConflict = Boolean(boundReferrer && referrer && boundReferrer.toLowerCase() !== referrer.toLowerCase());
   const effectiveReferrer = boundReferrer ?? referrer;
   const writeDisabled = actionLocked || normalizedWager === 0 || hasPendingBet || trackedBetId !== undefined;
-  const displayedGuessUp = isResolvingRound ? (submittedGuessUp ?? guessUp) : guessUp;
   const maxPayout = wagerPreview ? (wagerPreview * 194n) / 100n : 0n;
   const tokenDisplayName = t("common.tokenName");
 
@@ -149,6 +148,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
       || tx.phase === "confirming"
       || (trackedBetId !== undefined && resolvedRound === undefined)
     );
+  const displayedGuessUp = isResolvingRound ? (submittedGuessUp ?? guessUp) : guessUp;
 
   const showResultCard = resolvedRound !== undefined && revealPhase === "card";
 
