@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { decodeAbiParameters, decodeEventLog, encodeAbiParameters, formatEther, maxUint256, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
@@ -81,6 +81,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   const referralLanding = useReferralLanding(access.address);
   const publicClient = usePublicClient({ chainId: bscChain.id });
   const { writeContractAsync } = useWriteContract();
+  const lastApprovalHashRef = useRef<`0x${string}` | undefined>();
 
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [wagerUnits, setWagerUnits] = useState("1");
@@ -223,6 +224,15 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
   function handleWagerInputBlur() {
     setWagerUnits(String(normalizedWager || 1));
   }
+  useEffect(() => {
+    if (actionMode !== "approve" || tx.phase !== "success" || !tx.hash) return;
+    if (lastApprovalHashRef.current === tx.hash) return;
+
+    lastApprovalHashRef.current = tx.hash;
+    setActionMode("bet");
+    void allowance.refetch();
+  }, [actionMode, allowance.refetch, tx.hash, tx.phase]);
+  
   useEffect(() => {
   const activeAddress = access.activeAddress;
   if (!activeAddress || !hasStalePendingRound) return;
