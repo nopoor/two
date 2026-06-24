@@ -65,6 +65,33 @@ export function ReferralPage() {
     window.setTimeout(() => setter(false), 1500);
   }
 
+  async function copyText(value: string) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch {
+        // fallback below
+      }
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = value;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, value.length);
+
+    try {
+      return document.execCommand("copy");
+    } finally {
+      document.body.removeChild(textArea);
+    }
+  }
+
   async function ensureConnected() {
     if (access.activeAddress) return true;
     sound.play("coin");
@@ -76,7 +103,9 @@ export function ReferralPage() {
     if (!await ensureConnected()) return;
     if (!referralLink) return;
 
-    await navigator.clipboard.writeText(referralLink);
+    const copiedOk = await copyText(referralLink);
+    if (!copiedOk) return;
+
     sound.play("coin");
     flashStatus(setCopied);
   }
@@ -115,8 +144,14 @@ export function ReferralPage() {
     const downloadLink = document.createElement("a");
     downloadLink.href = objectUrl;
     downloadLink.download = `dividend-bank-invite-${access.activeAddress?.slice(2, 8) ?? "qr"}.png`;
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
     downloadLink.click();
-    URL.revokeObjectURL(objectUrl);
+
+    window.setTimeout(() => {
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(objectUrl);
+    }, 1000);
 
     sound.play("coin");
     flashStatus(setSaved);
@@ -134,20 +169,6 @@ export function ReferralPage() {
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        const blob = await getQrBlob();
-        if (blob) {
-          const file = new File([blob], "dividend-bank-invite.png", { type: "image/png" });
-          if (!navigator.canShare || navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              ...shareData,
-              files: [file],
-            });
-            sound.play("coin");
-            flashStatus(setShared);
-            return;
-          }
-        }
-
         await navigator.share(shareData);
         sound.play("coin");
         flashStatus(setShared);
