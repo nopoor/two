@@ -441,6 +441,8 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
             if (access.activeAddress) {
               clearPendingRound(access.activeAddress, "coin-flip");
             }
+            void pendingBetId.refetch();
+            void allowance.refetch();
           }
 
           return;
@@ -480,6 +482,8 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
         if (access.activeAddress) {
           clearPendingRound(access.activeAddress, "coin-flip");
         }
+        void pendingBetId.refetch();
+        void allowance.refetch();
       } catch (error) {
         console.warn("Failed to poll coin flip settlement", error);
       }
