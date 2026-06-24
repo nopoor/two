@@ -327,6 +327,7 @@ export function PlayPage() {
 
   const needsApproval = Boolean(wagerPreview && allowance.data !== undefined && allowance.data < wagerPreview);
   const hasPendingBet = pendingBetId.data !== undefined && pendingBetId.data !== 0n;
+  const isPendingBetLookupSettled = pendingBetId.data !== undefined && !pendingBetId.isFetching;
   const boundReferrer = referralStats.data?.[0] && referralStats.data[0] !== zeroAddress ? referralStats.data[0] : undefined;
   const hasReferrerConflict = Boolean(boundReferrer && referrer && boundReferrer.toLowerCase() !== referrer.toLowerCase());
   const effectiveReferrer = boundReferrer ?? referrer;
@@ -390,6 +391,7 @@ export function PlayPage() {
   const hasStalePendingRound =
     trackedBetId !== undefined
     && !hasPendingBet
+    && isPendingBetLookupSettled
     && resolvedRound === undefined
     && refundedBetId === undefined
     && tx.phase !== "sending"
@@ -478,7 +480,8 @@ export function PlayPage() {
 
     const fromBlock = tx.receipt.blockNumber;
     setTrackedFromBlock(fromBlock);
-
+    void pendingBetId.refetch();
+    
     let placedBetId: bigint | undefined;
 
     for (const log of tx.receipt.logs) {
@@ -531,7 +534,7 @@ export function PlayPage() {
         createdAt: Date.now(),
       });
     }
-  }, [access.activeAddress, actionMode, pendingBetId.data, tx.hash, tx.phase, tx.receipt]);
+  }, [access.activeAddress, actionMode, pendingBetId.data, pendingBetId.refetch, tx.hash, tx.phase, tx.receipt]);
 
   useEffect(() => {
     if (!publicClient || !access.activeAddress || trackedBetId !== undefined || resolvedRound) return;
