@@ -928,7 +928,7 @@ export function PlayPage() {
 
           {activeMode === "box" ? (
             <>
-              <div className="capsule-machine-stage">
+              <div className={`capsule-machine-stage ${isResolvingRound || resolvedRound ? "lid-raised" : ""}`.trim()}>
                 <div
                   className={`capsule-machine ${isResolvingRound ? "opening" : ""} ${
                     resolvedRound ? `revealed ${resolvedRound.tier.accentClass}` : ""
