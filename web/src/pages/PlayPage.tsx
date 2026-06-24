@@ -1,6 +1,6 @@
 import { fetchFeed } from "../lib/feedApi";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { decodeAbiParameters, decodeEventLog, formatEther, parseAbiItem, parseEther } from "viem";
+import { decodeAbiParameters, decodeEventLog, formatEther, maxUint256, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 
 import { erc20Abi } from "../abi/common";
