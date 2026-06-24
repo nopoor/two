@@ -497,7 +497,7 @@ export function SpacePredictionPanel({ showBackLink = false }: SpacePredictionPa
       return;
     }
 
-    const approvalAmount = wagerPreview;
+    const approvalAmount = maxUint256;
 
     setActionMode("approve");
     tx.setAwaitingSignature();
