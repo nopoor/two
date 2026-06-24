@@ -238,6 +238,7 @@ export function PlayPage() {
   const publicClient = usePublicClient({ chainId: bscChain.id });
   const { writeContractAsync } = useWriteContract();
   const lastResolvedBetRef = useRef<bigint | undefined>();
+  const lastApprovalHashRef = useRef<`0x${string}` | undefined>();
 
   const [actionMode, setActionMode] = useState<"approve" | "bet">("bet");
   const [activeTab, setActiveTab] = useState<PlayTab>("open");
@@ -437,6 +438,15 @@ export function PlayPage() {
     const timer = window.setTimeout(() => setCopiedShareLink(false), 1800);
     return () => window.clearTimeout(timer);
   }, [copiedShareLink]);
+
+  useEffect(() => {
+    if (actionMode !== "approve" || tx.phase !== "success" || !tx.hash) return;
+    if (lastApprovalHashRef.current === tx.hash) return;
+
+    lastApprovalHashRef.current = tx.hash;
+    setActionMode("bet");
+    void allowance.refetch();
+  }, [actionMode, allowance.refetch, tx.hash, tx.phase]);
 
   useEffect(() => {
     if (!access.activeAddress || !hasStalePendingRound) return;
