@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { decodeAbiParameters, decodeEventLog, encodeAbiParameters, formatEther, parseAbiItem, parseEther } from "viem";
+import { decodeAbiParameters, decodeEventLog, encodeAbiParameters, formatEther, maxUint256, parseAbiItem, parseEther } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 
 import { erc20Abi } from "../abi/common";
