@@ -106,6 +106,22 @@
   text-shadow: 0 0 18px rgba(255, 214, 10, 0.28);
 }
 
+.capsule-pool-card .capsule-pool-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.capsule-pool-value small {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 .capsule-pool-card p {
   margin: 0;
   font-size: 12px;
