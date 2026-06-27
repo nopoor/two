@@ -2174,7 +2174,7 @@ code,
 
 .referral-action-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2233,9 +2233,6 @@ code,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .referral-action-row > :first-child {
-    grid-column: 1 / -1;
-  }
 
   .referral-qr-box {
     width: 232px;
