@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { formatEther, keccak256, stringToHex, zeroHash } from "viem";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { SectionCard } from "../components/SectionCard";
+import { AdminDividendClaimCard } from "../components/AdminDividendClaimCard";
 import { TxStatusBanner } from "../components/TxStatusBanner";
 import { accessControlAbi, gameManagerAbi, gameRegistryAbi, nftRevenueDistributorAbi } from "../abi/gamefi";
 import { contracts } from "../config/contracts";
@@ -308,6 +309,8 @@ export function AdminPage() {
           </div>
         ) : null}
       </SectionCard>
+
+      <AdminDividendClaimCard address={address} currentDay={currentDay.data} />
 
       <SectionCard title={t("admin.refundTitle")} description={t("admin.refundDesc")}>
         <div className="form-shell">
