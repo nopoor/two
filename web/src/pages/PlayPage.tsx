@@ -872,8 +872,13 @@ export function PlayPage() {
               <span>{t("play.rewardPool")}</span>
               <span>{livePoolLabel}</span>
             </div>
-            <strong>
-              {rewardPool.data ? `${formatDisplayToken(rewardPool.data, numberLocale)} ${tokenDisplayName}` : "---"}
+            <strong className="capsule-pool-value">
+              {rewardPool.data ? (
+                <>
+                  <span>{formatDisplayToken(rewardPool.data, numberLocale)}</span>
+                  <small>{tokenDisplayName}</small>
+                </>
+              ) : "---"}
             </strong>
             <p>{t("play.rewardPoolDesc")}</p>
           </div>
