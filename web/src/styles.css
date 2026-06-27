@@ -2784,6 +2784,92 @@ code,
   min-width: 168px;
 }
 
+.admin-dividend-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.admin-dividend-overview > div {
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.admin-dividend-overview > div + div {
+  border-left: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.admin-dividend-overview span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.admin-dividend-overview strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.admin-dividend-list {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-dividend-list-head,
+.admin-dividend-list-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 110px minmax(150px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 11px 14px;
+}
+
+.admin-dividend-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #0f172a;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-dividend-list-row + .admin-dividend-list-row {
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.admin-dividend-list-row span,
+.admin-dividend-list-row code,
+.admin-dividend-list-row strong {
+  min-width: 0;
+  font-size: 0.82rem;
+}
+
+.admin-dividend-list-row code {
+  color: var(--text-soft);
+}
+
+.admin-dividend-list-row strong {
+  justify-self: end;
+  color: var(--yellow);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-dividend-list .empty-state {
+  padding: 24px 14px;
+}
+
 .action-panel {
   min-height: 160px;
   display: grid;
@@ -5021,6 +5107,25 @@ code,
 }
 
 @media (max-width: 767px) {
+  .admin-dividend-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dividend-overview > div + div {
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    border-left: 0;
+  }
+
+  .admin-dividend-list-head,
+  .admin-dividend-list-row {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  }
+
+  .admin-dividend-list-head span:nth-child(2),
+  .admin-dividend-list-row code {
+    display: none;
+  }
+  
   .game-stage-head {
     flex-direction: column;
     align-items: flex-start;
