@@ -42,7 +42,6 @@ export function ReferralPage() {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [shared, setShared] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const referralStats = useReadContract({
@@ -157,31 +156,6 @@ export function ReferralPage() {
     flashStatus(setSaved);
   }
 
-  async function shareQrCode() {
-    if (!await ensureConnected()) return;
-    if (!referralLink) return;
-
-    const shareData = {
-      title: t("referral.shareTitle"),
-      text: t("referral.shareText"),
-      url: referralLink,
-    };
-
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share(shareData);
-        sound.play("coin");
-        flashStatus(setShared);
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-      }
-    }
-
-    await copyLink();
-  }
 
   return (
     <div className="vault-page-stack">
@@ -199,9 +173,6 @@ export function ReferralPage() {
               </button>
               <button type="button" className="secondary-button" onClick={() => void saveQrCode()}>
                 {!access.activeAddress ? t("common.connectWalletShort") : saved ? t("referral.qrSaved") : t("referral.saveQr")}
-              </button>
-              <button type="button" className="ghost-button" onClick={() => void shareQrCode()}>
-                {!access.activeAddress ? t("common.connectWalletShort") : shared ? t("referral.shared") : t("referral.share")}
               </button>
             </div>
           </div>
