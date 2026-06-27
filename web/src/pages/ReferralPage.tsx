@@ -109,7 +109,7 @@ export function ReferralPage() {
     flashStatus(setCopied);
   }
 
-  async function getQrBlob() {
+  function getQrDataUrl() {
     const canvas = qrCanvasRef.current;
     if (!canvas) return undefined;
 
@@ -128,28 +128,51 @@ export function ReferralPage() {
     const qrSize = qrExportSize - qrExportPadding * 2;
     context.drawImage(canvas, qrExportPadding, qrExportPadding, qrSize, qrSize);
 
-    return new Promise<Blob | undefined>((resolve) => {
-      exportCanvas.toBlob((blob) => resolve(blob ?? undefined), "image/png");
-    });
+    return exportCanvas.toDataURL("image/png");
   }
 
   async function saveQrCode() {
     if (!await ensureConnected()) return;
 
-    const blob = await getQrBlob();
-    if (!blob) return;
+    const dataUrl = getQrDataUrl();
+    if (!dataUrl) return;
 
-    const objectUrl = URL.createObjectURL(blob);
+    const fileName = `dividend-bank-invite-${access.activeAddress?.slice(2, 8) ?? "qr"}.png`;
+    const encoded = dataUrl.split(",")[1];
+    if (!encoded) return;
+
+    const bytes = new Uint8Array(
+      window.atob(encoded).split("").map((character) => character.charCodeAt(0)),
+    );
+    const file = new File([bytes], fileName, { type: "image/png" });
+
+    if (
+      typeof navigator.share === "function"
+      && typeof navigator.canShare === "function"
+      && navigator.canShare({ files: [file] })
+    ) {
+      try {
+        await navigator.share({
+          title: t("referral.linkTitle"),
+          files: [file],
+        });
+        sound.play("coin");
+        flashStatus(setSaved);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+
     const downloadLink = document.createElement("a");
-    downloadLink.href = objectUrl;
-    downloadLink.download = `dividend-bank-invite-${access.activeAddress?.slice(2, 8) ?? "qr"}.png`;
+    downloadLink.href = dataUrl;
+    downloadLink.download = fileName;
     downloadLink.style.display = "none";
     document.body.appendChild(downloadLink);
     downloadLink.click();
 
     window.setTimeout(() => {
       document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(objectUrl);
     }, 1000);
 
     sound.play("coin");
